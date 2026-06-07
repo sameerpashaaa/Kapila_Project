@@ -1,4 +1,4 @@
-# Module Reference — Tapila Inventory
+# Module Reference — Kapila Inventory
 
 ## 1. Stock (Purchase & Store)
 **Owner screen:** `screens/Stock/index.jsx`
@@ -7,13 +7,24 @@
 ### Business Rules
 - Each stock entry tracks `qty` (original) and `remaining` (decremented on issuance)
 - `remaining` can never go below 0
-- Low-stock alert threshold: `remaining / qty < 0.25`
+- Low-stock alert threshold: `remaining ≤ min_alert_qty` (defaults to `qty * 0.25` if not set)
+- `item_code` auto-generated as `KPL-###` (e.g., KPL-101, KPL-102) — unique per item name, reused if re-stocking
+- Adjustments tracked in `stock_adjustments` table with `reason` (Audit, Damage, Theft, etc)
+- Expiry dates: items marked as "Expired" or "Expiring Soon" (< 3 days) in filter
+- Supplier tracking: can filter/search by supplier
 - Deleting a stock item does not retroactively adjust issuance history
 
 ### Fields
 ```
-name, qty (float), unit, date (received), remaining (float)
+id, name, item_code (KPL-###), qty, remaining, unit,
+price, supplier, expiry_date, min_alert_qty, date (received),
+created_at
 ```
+
+### New Features
+- **Ledger**: `/api/stock/ledger` — combined log of purchases, issues, leftovers
+- **Insights**: `/api/stock/insights` — spend tracking, store value, low-stock values
+- **Filters**: by name, supplier, expiry status (fresh/expiring/expired), low-stock, full-text search
 
 ---
 
@@ -25,12 +36,13 @@ name, qty (float), unit, date (received), remaining (float)
 - Indents are submitted by department heads nightly for next-day needs
 - One indent per department per date (soft rule — not enforced in MVP)
 - Status lifecycle: `pending → issued` (or `cancelled`)
-- Items have no unit on indent — unit is resolved from stock at issuance time
-- Indent items autocomplete from current stock names
+- Indent items capture `unit` at time of request (not resolved later)
+- `item_code` links to the stock item if known
+- Indent items autocomplete from current stock names (via `AppContext.stockNames`)
 
 ### Fields
 ```
-dept, date (needed), items[]{name, qty}, status
+dept, date (needed), items[]{name, qty, unit, item_code}, status
 ```
 
 ---
@@ -46,17 +58,20 @@ dept, date (needed), items[]{name, qty}, status
 - On issue: stock `remaining` is decremented for each matched item (name match, case-insensitive)
 - Indent status set to `issued` after manual issuance
 - Scanned issuances have `scanned: true`, `indent_id: null`
+- Items capture `unit` and `item_code` at time of issuance
 - Items not found in stock still get recorded (no blocking constraint)
 
-### AI Scan Rules
-- Image sent to backend → Claude API
+### AI Scan Rules (via `/api/scan/indent`)
+- Storekeeper uploads image of paper indent form
+- Backend sends to Claude API with vision capability
 - Claude extracts `{dept, date, items[]{name, qty}}`
 - If Claude cannot parse, error is surfaced to user — no silent failure
-- Parsed result shown for user confirmation before saving (future enhancement)
+- Parsed result auto-populates form; user reviews and adjusts before submitting
 
 ### Fields
 ```
-indentId (nullable), dept, date, scanned (bool), items[]{name, qty, issued}
+indentId (nullable), dept, date, scanned (bool),
+items[]{name, qty, issued, unit, item_code}
 ```
 
 ---

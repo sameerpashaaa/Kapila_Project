@@ -3,11 +3,11 @@ import { useState, useEffect, useRef } from "react";
 const DEPARTMENTS = ["South Indian", "North Indian", "Continental", "Juices", "Bakery", "Chinese"];
 
 const STORAGE_KEYS = {
-  stock: "tapila_stock",
-  indents: "tapila_indents",
-  issuances: "tapila_issuances",
-  production: "tapila_production",
-  leftovers: "tapila_leftovers",
+  stock: "kapila_stock",
+  indents: "kapila_indents",
+  issuances: "kapila_issuances",
+  production: "kapila_production",
+  leftovers: "kapila_leftovers",
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -617,7 +617,7 @@ function Dashboard({ stock, indents, issuances, production, leftovers }) {
   }));
 
   return (
-    <Section title="Dashboard" sub={`Hotel Tapila — ${new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}`}>
+    <Section title="Dashboard" sub={`Hotel Kapila — ${new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}`}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 20 }}>
         {stats.map(s => (
           <Card key={s.label} style={{ padding: 16, textAlign: "center" }}>
@@ -704,7 +704,7 @@ export default function App() {
         {/* Sidebar */}
         <div style={{ width: 200, background: COLORS.surface, borderRight: `1px solid ${COLORS.border}`, padding: "24px 0", display: "flex", flexDirection: "column", position: "fixed", top: 0, bottom: 0 }}>
           <div style={{ padding: "0 20px 24px" }}>
-            <p style={{ fontFamily: "'DM Serif Display'", fontSize: 20, color: COLORS.accent, lineHeight: 1.1 }}>Tapila</p>
+            <p style={{ fontFamily: "'DM Serif Display'", fontSize: 20, color: COLORS.accent, lineHeight: 1.1 }}>Kapila</p>
             <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 3, letterSpacing: "0.06em", textTransform: "uppercase" }}>Inventory</p>
           </div>
           {NAV.map(n => (

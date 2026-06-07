@@ -1,4 +1,4 @@
-# Frontend Documentation — Tapila Inventory
+# Frontend Documentation — Kapila Inventory
 
 ## Stack
 - React 18 (Vite)
@@ -69,6 +69,19 @@ export const COLORS = {
 };
 ```
 
+## Global State (AppContext)
+The `AppContext` provides shared state across screens:
+```js
+{
+  stockNames: string[],      // item names for autocomplete
+  stocks: object[],          // full stock objects {id, name, item_code, price, supplier, ...}
+  refreshStockNames: async () => void  // refetch from API
+}
+```
+Usage: `const { stockNames, stocks, refreshStockNames } = useAppContext()`
+
+When a stock item is added/deleted, call `refreshStockNames()` to sync autocomplete + Indent/Issuance screens.
+
 ## Navigation
 Nav items are defined in `App.jsx` as `NAV` array:
 ```js
@@ -81,19 +94,33 @@ Active screen stored in `useState("dashboard")`.
 ## Data Storage (MVP — localStorage)
 | Key                  | Contains              |
 |----------------------|-----------------------|
-| `tapila_stock`       | stock[]               |
-| `tapila_indents`     | indent[]              |
-| `tapila_issuances`   | issuance[]            |
-| `tapila_production`  | production[]          |
-| `tapila_leftovers`   | leftover[]            |
+| `kapila_stock`       | stock[]               |
+| `kapila_indents`     | indent[]              |
+| `kapila_issuances`   | issuance[]            |
+| `kapila_production`  | production[]          |
+| `kapila_leftovers`   | leftover[]            |
 
 When backend is ready, replace `useStorage` calls with `useApi` + server state.
 
-## AI Scan Feature (Issuance screen)
-- User uploads image → `ScanPanel.jsx`
-- Frontend POSTs to `POST /api/scan/indent` (backend handles Claude API call)
-- Never call `https://api.anthropic.com` directly from browser
-- Show loading state during scan; surface errors clearly
+## AI Scan Features (via `/api/scan` endpoint)
+Three scan types available, all proxied through backend:
+
+### 1. Indent Form Scan (`/api/scan/indent`)
+- Issuance screen: upload scanned indent form image
+- Returns: `{ dept, date, items: [{name, qty}, ...] }`
+
+### 2. Purchase Receipt Scan (`/api/scan/purchase`)
+- Stock screen: upload receipt/invoice image
+- Returns: `{ supplier, date, items: [{name, qty, unit, price}, ...] }`
+
+### 3. Freeform Text Scan (`/api/scan/text`)
+- Any screen: paste raw text (email, message, etc)
+- Returns: structured data based on context
+
+**Rules:**
+- Never call `https://api.anthropic.com` directly from browser — always proxy via backend
+- Show loading state during scan; surface errors with `<ErrorMsg>`
+- Auto-populate form fields with parsed results; user can edit before submitting
 
 ## Responsive / Mobile
 - Sidebar collapses to bottom nav on mobile (to be implemented)

@@ -1,4 +1,4 @@
-# Roadmap — Tapila Inventory
+# Roadmap — Kapila Inventory
 
 ## Phase 1 — MVP (current)
 - [x] Single-file React app with all 6 modules

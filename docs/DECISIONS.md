@@ -1,4 +1,4 @@
-# Architecture Decision Log — Tapila Inventory
+# Architecture Decision Log — Kapila Inventory
 
 Decisions are recorded here so future contributors (and AI agents) understand
 the WHY behind choices. Never delete entries — append only.
@@ -6,7 +6,7 @@ the WHY behind choices. Never delete entries — append only.
 ---
 
 ## [2026-06-07] Single-file MVP → Modular architecture
-**Decision:** Start with one `tapila_inventory.jsx` to prove the concept, then
+**Decision:** Start with one `kapila_inventory.jsx` to prove the concept, then
 split into modular structure as the feature set grows.
 **Reason:** Fast to iterate, zero config, can be dropped into any React scaffold.
 **Trade-off:** All state is in `localStorage` — no multi-device sync, no multi-user.
@@ -15,7 +15,7 @@ split into modular structure as the feature set grows.
 ---
 
 ## [2026-06-07] localStorage as initial data store
-**Decision:** Use `localStorage` with `tapila_*` keys for MVP persistence.
+**Decision:** Use `localStorage` with `kapila_*` keys for MVP persistence.
 **Reason:** Zero infrastructure, instant setup, works offline.
 **Trade-off:** Data lost on browser clear; no cross-device; no concurrent users.
 **Migration path:** Replace `useStorage` hook internals with API calls once backend is ready.

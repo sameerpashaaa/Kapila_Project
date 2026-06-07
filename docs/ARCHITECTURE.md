@@ -1,4 +1,4 @@
-# Architecture Overview — Tapila Inventory
+# Architecture Overview — Kapila Inventory
 
 ## System Diagram
 ```
@@ -50,15 +50,20 @@ User uploads image
 ## Database Schema (target)
 
 ### stock
-| column     | type    | notes                   |
-|------------|---------|-------------------------|
-| id         | integer | PK autoincrement        |
-| name       | text    | item name               |
-| qty        | real    | original quantity       |
-| remaining  | real    | decremented on issuance |
-| unit       | text    | kg/g/L/ml/pcs/dozen/box |
-| date       | text    | YYYY-MM-DD              |
-| created_at | text    | ISO timestamp           |
+| column         | type    | notes                      |
+|----------------|---------|----------------------------|
+| id             | integer | PK autoincrement           |
+| name           | text    | item name                  |
+| item_code      | text    | unique code (KPL-101+)     |
+| qty            | real    | original quantity          |
+| remaining      | real    | decremented on issuance    |
+| unit           | text    | kg/g/L/ml/pcs/dozen/box    |
+| price          | real    | cost per unit              |
+| supplier       | text    | supplier name              |
+| expiry_date    | date    | expiry/use-by date         |
+| min_alert_qty  | real    | low-stock alert threshold  |
+| date           | date    | YYYY-MM-DD (received)      |
+| created_at     | text    | ISO timestamp              |
 
 ### indents
 | column     | type    | notes                        |
@@ -74,8 +79,10 @@ User uploads image
 |-----------|---------|----------------|
 | id        | integer | PK             |
 | indent_id | integer | FK → indents   |
-| name      | text    |                |
-| qty       | real    |                |
+| name      | text    | item name      |
+| qty       | real    | requested qty  |
+| unit      | text    | measurement    |
+| item_code | text    | ref to stock   |
 
 ### issuances
 | column     | type    | notes               |
@@ -88,13 +95,15 @@ User uploads image
 | created_at | text    |                     |
 
 ### issuance_items
-| column       | type    | notes           |
-|--------------|---------|-----------------|
-| id           | integer | PK              |
-| issuance_id  | integer | FK → issuances  |
-| name         | text    |                 |
-| qty          | real    | requested       |
-| issued       | real    | actually issued |
+| column       | type    | notes              |
+|--------------|---------|-------------------|
+| id           | integer | PK                 |
+| issuance_id  | integer | FK → issuances     |
+| name         | text    | item name          |
+| qty          | real    | requested qty      |
+| issued       | real    | actually issued    |
+| unit         | text    | measurement unit   |
+| item_code    | text    | ref to stock item  |
 
 ### production
 | column     | type    | notes                |
@@ -118,11 +127,22 @@ User uploads image
 | carried_forward | integer | 0/1             |
 | created_at      | text    |                 |
 
+### stock_adjustments
+| column    | type    | notes                   |
+|-----------|---------|-------------------------|
+| id        | integer | PK autoincrement        |
+| stock_id  | integer | FK → stock              |
+| qty       | real    | quantity change (delta) |
+| reason    | text    | why adjusted (audit, correction, etc) |
+| date      | date    | adjustment date         |
+| notes     | text    | additional details      |
+| created_at| text    | ISO timestamp           |
+
 ## Environment Variables
 ```
 # backend/.env
 PORT=3001
-DB_PATH=./db/tapila.sqlite         # dev
+DB_PATH=./db/kapila.sqlite         # dev
 DATABASE_URL=postgres://...        # prod
 ANTHROPIC_API_KEY=sk-ant-...
 JWT_SECRET=...

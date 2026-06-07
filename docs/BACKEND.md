@@ -1,4 +1,4 @@
-# Backend Documentation — Tapila Inventory
+# Backend Documentation — Kapila Inventory
 
 ## Stack
 - Node.js + Express
@@ -51,12 +51,14 @@ backend/
 ## REST API Reference
 
 ### Stock
-| Method | Path            | Body / Params            | Description          |
-|--------|-----------------|--------------------------|----------------------|
-| GET    | /api/stock      | —                        | List all stock       |
-| POST   | /api/stock      | `{name,qty,unit,date}`   | Add stock item       |
-| PATCH  | /api/stock/:id  | `{remaining}`            | Update remaining qty |
-| DELETE | /api/stock/:id  | —                        | Remove item          |
+| Method | Path                  | Body / Params                                        | Description                              |
+|--------|----------------------|------------------------------------------------------|------------------------------------------|
+| GET    | /api/stock            | `?name=&unit=&supplier=&expiry_status=&q=&page=`   | List stock with filters & full-text     |
+| GET    | /api/stock/ledger     | —                                                    | Stock ledger (purchases, issues, leftovers) |
+| GET    | /api/stock/insights   | —                                                    | Stock insights (spend, alerts, trends)  |
+| POST   | /api/stock            | `{name,qty,unit,date,price,supplier,expiry_date,min_alert_qty}` | Add stock with details |
+| PATCH  | /api/stock/:id        | `{remaining,min_alert_qty,reason,notes}`           | Update qty, alert threshold, log adjustment |
+| DELETE | /api/stock/:id        | —                                                    | Remove item                               |
 
 ### Indents
 | Method | Path              | Body / Params              | Description         |
@@ -84,9 +86,11 @@ backend/
 | POST   | /api/leftovers    | `{dept,date,item,qty,unit}`         | Record leftover   |
 
 ### AI Scan
-| Method | Path                | Body                        | Description               |
-|--------|---------------------|-----------------------------|---------------------------|
-| POST   | /api/scan/indent    | multipart image file        | OCR indent form via Claude|
+| Method | Path                | Body                        | Description                          |
+|--------|---------------------|-----------------------------|--------------------------------------|
+| POST   | /api/scan/indent    | `{image, mime_type}`        | OCR indent form → dept, items, date |
+| POST   | /api/scan/purchase  | `{image, mime_type}`        | OCR purchase receipt → name, qty, price |
+| POST   | /api/scan/text      | `{text}`                    | Extract data from freeform text      |
 
 ### Dashboard
 | Method | Path              | Params       | Description              |
@@ -102,11 +106,14 @@ All endpoints return:
 
 ## Validation Rules
 - `name`: non-empty string, max 100 chars
-- `qty` / `remaining` / `issued`: positive float
+- `qty` / `remaining` / `issued` / `price` / `min_alert_qty`: positive float
 - `unit`: one of `kg | g | L | ml | pcs | dozen | box | plates | portions`
 - `dept`: one of the 6 defined departments
-- `date`: `YYYY-MM-DD` format
+- `date` / `expiry_date`: `YYYY-MM-DD` format
 - `status`: `pending | issued | cancelled`
+- `item_code`: auto-generated `KPL-###` format (cannot be set manually)
+- `supplier`: optional text, max 100 chars
+- `reason` (on stock adjustment): `Audit Correction | Damage | Theft | Other`
 
 ## Claude Service (`services/claude.js`)
 ```js

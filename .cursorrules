@@ -1,0 +1,69 @@
+# Kapila Project — Cursor Rules & Code Guidelines
+
+Welcome to the **Kapila Project** (Hotel Inventory & Store Management System). Use these rules to maintain high quality, consistent style, and correct architecture.
+
+---
+
+## 1. Project Naming Conventions
+- **Database Names**: The primary database is `kapila`. The fallback database is `tapila`. All user-facing UI, text, logs, and comments must exclusively use **"Kapila"** (never "Tapila").
+
+## 2. Tech Stack & Styling Guidelines
+- **Frontend**: React (Vite-based), vanilla CSS/CSS-in-JS.
+- **UI Colors & Theme**: Dark-themed premium aesthetic. Never use Tailwind or third-party styles unless explicitly requested. Always import and use the design system variables from `frontend/src/styles/colors.js`:
+  - `COLORS.bg`: Background dark blue-black (`#0f1117`)
+  - `COLORS.surface`: Surface panels (`#181c27`)
+  - `COLORS.card`: Card backgrounds (`#1e2333`)
+  - `COLORS.accent`: Amber/Gold highlighting (`#e8a838`)
+  - `COLORS.teal`: Cyan-teal metrics (`#2dd4bf`)
+  - `COLORS.coral`: Alerts / Low stock (`#f87171`)
+  - `COLORS.text`: Soft white (`#e8e9f0`)
+  - `COLORS.muted`: Slate gray (`#7a8098`)
+- **Backend**: Node.js, Express, Knex.js query builder, PostgreSQL.
+
+## 3. Backend Architecture & Controller Conventions
+- **Routing**: Use `/api` prefixed routes. Define routes in `routes/` and delegate the logic to controllers under `controllers/` folder.
+- **Error Handling**: Always forward errors to the global Express error handler by catching them and calling `next(err)`:
+  ```javascript
+  async function list(req, res, next) {
+    try {
+      // business logic
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+  ```
+- **Pagination Middleware**: Paginated listing endpoints must leverage the pagination middleware. Always destruct query variables from `req.pagination` (containing `offset`, `limit`, `sort`, and `order` defaults).
+- **Standard API Responses**: Ensure API responses follow a uniform structure:
+  - Success: `{ success: true, data: [...] }` or `{ success: true, data, total, page, limit }` for paginated results.
+  - Failure: Handles error propagation automatically via middleware resulting in `{ success: false, error: "Error message" }`.
+
+## 4. Database & Transactions
+- **Migrations**: Database schema updates must be written as Knex migrations under `backend/db/migrations/` and run on both `kapila` and `tapila` databases.
+- **Database Client**: Query the database by importing the DB connection pool instance:
+  ```javascript
+  const db = require("../db");
+  ```
+- **Transactions**: For operations involving multiple writes or state changes (e.g., creating an issuance and deducting stock), always wrap them in a Knex transaction block:
+  ```javascript
+  await db.transaction(async (trx) => {
+    // operations using trx
+  });
+  ```
+
+## 5. Input Validation
+- **Zod Schemas**: All incoming API requests must be validated using Zod schemas inside `backend/middleware/validate.js`.
+- **Units Validation**: Supported units are limited to `UNITS` enum: `["kg", "g", "L", "ml", "pcs", "dozen", "box", "plates", "portions"]`.
+
+## 6. Inventory & Business Rules
+- **Low Stock Threshold**: Low stock is defined as `remaining <= COALESCE(min_alert_qty, qty * 0.25)`.
+- **Expiry Rules**: Expiry status must show color-coded alerts:
+  - 🔴 **Expired** (current date > expiry_date)
+  - 🟡 **Expiring soon** (expiry_date within 3 days)
+  - 🟢 **Fresh** (expiry_date > 3 days out)
+- **Unit Support**: Explicit unit columns (`unit`) are required for items on `stock`, `indent_items`, `issuance_items`, and `leftovers`.
+
+## 7. Frontend Component Guidelines
+- **Structural Wrappers**: Use `<Section title="..." sub="...">` wrapper for full screens and `<Card>` components for content layouts.
+- **Control Elements**: Use custom components like `<Btn>`, `<Input>`, `<Select>`, and `<Pagination>` from `frontend/src/components/` to preserve style consistency.
+- **Offline Prefilling**: Leverage loaded contextual data (like `stocks` context) for intelligent autocomplete suggestions to minimize repetitive network roundtrips.

@@ -1,4 +1,4 @@
-# Tapila Inventory — Agent Roles & Responsibilities
+# Kapila Inventory — Agent Roles & Responsibilities
 
 ## Overview
 This document defines how AI agents (Claude) should behave in different contexts
@@ -106,7 +106,7 @@ constraints it must not violate.
 2. Check the relevant `docs/<MODULE>.md` before editing that module
 3. One concern per commit — don't bundle unrelated changes
 4. If a task touches >3 files, outline the plan first and ask for confirmation
-5. Mark TODOs with `// TODO(tapila):` so they're searchable
+5. Mark TODOs with `// TODO(kapila):` so they're searchable
 
 ---
 

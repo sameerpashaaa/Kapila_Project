@@ -1,14 +1,14 @@
-# Tapila Inventory System — Claude Instructions
+# Kapila Inventory System — Claude Instructions
 
 ## Project Identity
-- **Project:** Hotel Tapila Inventory Management System
+- **Project:** Hotel Kapila Inventory Management System
 - **Stack:** React (Vite), Node.js/Express backend (planned), SQLite or PostgreSQL
-- **Current state:** Single-file MVP (`tapila_inventory.jsx`) — expanding into full modular architecture
+- **Current state:** Single-file MVP (`kapila_inventory.jsx`) — expanding into full modular architecture
 - **Style:** Dark theme UI, DM Serif Display + DM Sans fonts, gold accent `#e8a838`
 
 ## Architecture (Target)
 ```
-tapila/
+kapila/
 ├── frontend/          # React + Vite app
 │   ├── src/
 │   │   ├── components/    # Reusable UI (Btn, Card, Table, Input…)
@@ -30,6 +30,10 @@ tapila/
 
 ## Modules
 1. **Stock** — Incoming purchases from suppliers
+   - *Voice Capturing & OCR*: Multi-language speech recognition (Telugu `te-IN`, Hindi `hi-IN`, English `en-IN`, Tamil, Kannada, etc.) & receipt scans (Claude 3.5 Sonnet).
+   - *Alerts & POs*: WhatsApp PO generation (`https://wa.me/?text=...`) and clipboard copying for low stock items.
+   - *Supplier Comparisons*: Auto-ranking active supplier rates under item input to recommend the cheapest.
+   - *Expiry tracking*: Spoilage warning widget displaying items expiring in under 3 days.
 2. **Indent** — Department nightly material requests
 3. **Issuance** — Storekeeper issues goods, AI scan of paper forms
 4. **Production** — Plates/portions logged per department
@@ -44,7 +48,7 @@ tapila/
 - No comments unless the WHY is non-obvious
 - No backwards-compat shims — just change the code
 - All monetary/qty values are `float`, dates are `YYYY-MM-DD` strings
-- `localStorage` keys are namespaced: `tapila_*`
+- `localStorage` keys are namespaced: `kapila_*`
 - API calls must include `x-api-key` header for Anthropic endpoints
 - Prefer editing existing files over creating new ones
 
