@@ -146,6 +146,9 @@ export default function Dashboard() {
           <div style={{ position: "relative" }}>
             <button 
               onClick={() => setIsHotelDropdownOpen(!isHotelDropdownOpen)}
+              aria-expanded={isHotelDropdownOpen}
+              aria-label="Select Hotel"
+              aria-haspopup="listbox"
               style={{
                 display: "flex", alignItems: "center", gap: 10, background: "#ffffff",
                 border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "8px 16px",
@@ -226,8 +229,9 @@ export default function Dashboard() {
           </button>
 
           {/* Bell Icon with badge */}
-          <div 
+          <button 
             onClick={() => showToast("No new alerts since last update")}
+            aria-label="Notifications"
             style={{
               position: "relative", width: 40, height: 40, background: "#ffffff",
               border: `1px solid ${COLORS.border}`, borderRadius: "50%",
@@ -239,11 +243,12 @@ export default function Dashboard() {
               position: "absolute", top: 10, right: 10, width: 6, height: 6,
               background: COLORS.coral, borderRadius: "50%"
             }} />
-          </div>
+          </button>
 
           {/* User Profile Avatar */}
-          <div 
+          <button 
             onClick={() => showToast("User Profile: Muhammad (Administrator)")}
+            aria-label="User profile menu"
             style={{
               display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
               background: "#ffffff", border: `1px solid ${COLORS.border}`,
@@ -256,7 +261,7 @@ export default function Dashboard() {
               style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} 
             />
             <span style={{ color: COLORS.muted }}><Icons.ChevronDown /></span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -425,6 +430,7 @@ export default function Dashboard() {
               <h3 style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>Booking</h3>
               <button 
                 onClick={() => showToast("Updating booking data...")}
+                aria-label="Refresh bookings"
                 style={{ background: "none", border: "none", color: COLORS.muted, cursor: "pointer", display: "flex", alignItems: "center" }}
               >
                 <Icons.Refresh />
@@ -605,11 +611,12 @@ export default function Dashboard() {
                 <p style={{ fontSize: 18, fontWeight: 700, color: COLORS.text, lineHeight: 1 }}>16</p>
                 <p style={{ fontSize: 10, color: COLORS.muted, textTransform: "uppercase" }}>Sat</p>
               </div>
-              <div 
+              <button 
                 onClick={() => {
                   setNewResForm({...newResForm, arrival: "2026-06-16"});
                   setIsNewResModalOpen(true);
                 }}
+                aria-label="Book room on March 16"
                 style={{
                   flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center",
                   border: `1.5px dashed ${COLORS.border}`, padding: "8px 12px", borderRadius: 10,
@@ -619,7 +626,7 @@ export default function Dashboard() {
               >
                 <span>Available for booking</span>
                 <span style={{ color: "#76c043", fontSize: 16, fontWeight: "bold" }}>+</span>
-              </div>
+              </button>
             </div>
 
             {/* Booking 5: 17 Sun (Available) */}
@@ -628,11 +635,12 @@ export default function Dashboard() {
                 <p style={{ fontSize: 18, fontWeight: 700, color: COLORS.text, lineHeight: 1 }}>17</p>
                 <p style={{ fontSize: 10, color: COLORS.muted, textTransform: "uppercase" }}>Sun</p>
               </div>
-              <div 
+              <button 
                 onClick={() => {
                   setNewResForm({...newResForm, arrival: "2026-06-17"});
                   setIsNewResModalOpen(true);
                 }}
+                aria-label="Book room on March 17"
                 style={{
                   flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center",
                   border: `1.5px dashed ${COLORS.border}`, padding: "8px 12px", borderRadius: 10,
@@ -642,7 +650,7 @@ export default function Dashboard() {
               >
                 <span>Available for booking</span>
                 <span style={{ color: "#76c043", fontSize: 16, fontWeight: "bold" }}>+</span>
-              </div>
+              </button>
             </div>
 
             {/* Booking 6: 18 Mon */}

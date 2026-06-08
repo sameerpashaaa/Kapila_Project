@@ -62,8 +62,21 @@ const NAV_CATEGORIES = [
 
 function Inner() {
   const { currentScreen: screen, setCurrentScreen: setScreen, refreshStockNames } = useAppContext();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => { refreshStockNames(); }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const screens = {
     dashboard:  <Dashboard />,
@@ -83,10 +96,47 @@ function Inner() {
     waste_analytics: <WasteAnalyticsScreen />,
   };
 
+  const handleNavigation = (id) => {
+    setScreen(id);
+    if (isMobile) setIsSidebarOpen(false);
+  };
+
   return (
     <>
       <style>{globalCss}</style>
-      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: COLORS.bg }}>
+      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: COLORS.bg, flexDirection: isMobile ? "column" : "row" }}>
+        
+        {/* Mobile Header Toolbar */}
+        {isMobile && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "12px 20px", background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`,
+            position: "sticky", top: 0, zIndex: 90
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                aria-label="Open Navigation Menu"
+                style={{ background: "none", border: "none", fontSize: 24, color: COLORS.text, cursor: "pointer" }}
+              >
+                ☰
+              </button>
+              <span style={{ fontWeight: 600, color: COLORS.accent, fontSize: 16 }}>Kapila Inventory</span>
+            </div>
+          </div>
+        )}
+
+        {/* Sidebar Overlay for Mobile */}
+        {isMobile && isSidebarOpen && (
+          <div 
+            onClick={() => setIsSidebarOpen(false)}
+            style={{
+              position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.5)", zIndex: 99
+            }}
+          />
+        )}
+
         {/* Sidebar */}
         <div style={{
           width: 80,
@@ -99,11 +149,13 @@ function Inner() {
           position: "fixed",
           top: 0,
           bottom: 0,
+          left: isMobile ? (isSidebarOpen ? 0 : -80) : 0,
+          transition: "left 0.3s ease",
           zIndex: 100
         }}>
           {/* Stylized Logo from Screenshot */}
           <div style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
-            <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
+            <svg width="36" height="36" viewBox="0 0 32 32" fill="none" aria-hidden="true">
               <path d="M8 6C8 4.89543 8.89543 4 10 4C11.1046 4 12 4.89543 12 6V14C13.5 11.5 16.5 10 20 10C24.4183 10 28 13.5817 28 18V26C28 27.1046 27.1046 28 26 28C24.8954 28 24 27.1046 24 26V18C24 15.7909 22.2091 14 20 14C17.7909 14 16 15.7909 16 18V26C16 27.1046 15.1046 28 14 28C12.8954 28 12 27.1046 12 26V18" fill={COLORS.accent} />
             </svg>
           </div>
@@ -114,7 +166,7 @@ function Inner() {
               cat.items.map((n) => (
                 <button
                   key={n.id}
-                  onClick={() => setScreen(n.id)}
+                  onClick={() => handleNavigation(n.id)}
                   title={`${cat.title}: ${n.label}`}
                   style={{
                     display: "flex",
@@ -140,7 +192,7 @@ function Inner() {
                     if (screen !== n.id) e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  <span style={{ fontSize: 18, color: screen === n.id ? COLORS.accent : COLORS.muted }}>{n.icon}</span>
+                  <span style={{ fontSize: 18, color: screen === n.id ? COLORS.accent : COLORS.muted }} aria-hidden="true">{n.icon}</span>
                   <span style={{
                     fontSize: 8,
                     fontWeight: screen === n.id ? 600 : 500,
@@ -164,7 +216,13 @@ function Inner() {
         </div>
 
         {/* Main content */}
-        <div style={{ marginLeft: 80, flex: 1, padding: "24px 32px", minHeight: "100vh", backgroundColor: COLORS.bg }}>
+        <div style={{ 
+          marginLeft: isMobile ? 0 : 80, 
+          flex: 1, 
+          padding: isMobile ? "16px" : "24px 32px", 
+          minHeight: "100vh", 
+          backgroundColor: COLORS.bg 
+        }}>
           {screens[screen]}
         </div>
       </div>

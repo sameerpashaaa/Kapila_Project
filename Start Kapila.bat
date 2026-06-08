@@ -14,7 +14,7 @@ echo  Hotel Kapila Inventory System
 echo  ─────────────────────────────
 :: Ensure PostgreSQL database exists
 echo  [0/2] Checking PostgreSQL database...
-set PGPASSWORD=postgres
+set PGPASSWORD=admin123
 psql -U postgres -h localhost -c "SELECT 1 FROM pg_database WHERE datname='kapila'" 2>nul | findstr /B "1" >nul 2>&1
 if %errorlevel% neq 0 (
     echo      Database "kapila" not found. Attempting to create it...
