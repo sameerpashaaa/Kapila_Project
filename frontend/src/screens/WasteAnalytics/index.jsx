@@ -4,8 +4,10 @@ import Card from "../../components/Card";
 import ErrorMsg from "../../components/ErrorMsg";
 import { COLORS } from "../../styles/colors";
 import * as api from "../../api";
+import { useAppContext } from "../../context/AppContext";
 
 export default function WasteAnalyticsScreen() {
+  const { stocks } = useAppContext();
   const [productionList, setProductionList] = useState([]);
   const [leftoversList, setLeftoversList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,31 +36,42 @@ export default function WasteAnalyticsScreen() {
   // Group production & waste by department
   const deptStats = {};
   productionList.forEach(p => {
-    const d = p.dept;
+    const d = p.dept || "Unknown";
     if (!deptStats[d]) {
       deptStats[d] = { plates: 0, issuances: 0, leftovers: 0, wastePct: 0, cost: 0 };
     }
-    deptStats[d].plates += parseFloat(p.plates_made || 0);
-    deptStats[d].leftovers += parseFloat(p.leftovers_count || 0);
-    deptStats[d].wastePct = deptStats[d].plates > 0 ? (deptStats[d].leftovers / deptStats[d].plates) * 100 : 0;
+    deptStats[d].plates += parseFloat(p.plates_made || p.plates || 0);
+  });
+
+  leftoversList.forEach(l => {
+    const d = l.dept || "Unknown";
+    if (!deptStats[d]) {
+      deptStats[d] = { plates: 0, issuances: 0, leftovers: 0, wastePct: 0, cost: 0 };
+    }
+    deptStats[d].leftovers += parseFloat(l.qty || 0);
+  });
+
+  Object.values(deptStats).forEach(stats => {
+    stats.wastePct = stats.plates > 0 ? (stats.leftovers / stats.plates) * 100 : 0;
   });
 
   // Calculate waste cost
-  // Let's assume a plate's ingredient cost is ~₹45 for waste estimations, or we look at leftover raw items
+  // Fetch pricing from stock master or fallback to approximate pricing
   let totalLeftoverCost = 0;
   leftoversList.forEach(l => {
-    // Basic approximate pricing per unit if not in stock table: Basmati Rice: ₹92, Butter: ₹250, Oil: ₹123, others default to ₹50
-    let price = 50;
-    const name = l.item.toLowerCase();
-    if (name.includes("rice")) price = 92;
-    else if (name.includes("butter")) price = 250;
-    else if (name.includes("oil")) price = 123;
+    let price = 0; // Default to 0 instead of arbitrary 50
+    const name = l.item?.toLowerCase() || "";
+    const stockMatch = stocks.find(s => s.name?.toLowerCase() === name);
+    
+    if (stockMatch && stockMatch.price) {
+      price = parseFloat(stockMatch.price);
+    }
     
     totalLeftoverCost += parseFloat(l.qty || 0) * price;
   });
 
-  const totalPlates = productionList.reduce((acc, curr) => acc + parseFloat(curr.plates_made || 0), 0);
-  const totalLeftovers = productionList.reduce((acc, curr) => acc + parseFloat(curr.leftovers_count || 0), 0);
+  const totalPlates = productionList.reduce((acc, curr) => acc + parseFloat(curr.plates_made || curr.plates || 0), 0);
+  const totalLeftovers = leftoversList.reduce((acc, curr) => acc + parseFloat(curr.qty || 0), 0);
   const averageWastePct = totalPlates > 0 ? (totalLeftovers / totalPlates) * 100 : 0;
 
   return (

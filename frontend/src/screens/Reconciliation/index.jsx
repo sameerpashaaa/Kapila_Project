@@ -61,7 +61,8 @@ export default function ReconciliationScreen() {
     const sys = systemQty(item.item_code);
     const phy = parseFloat(item.physical_qty);
     if (sys === null || isNaN(phy)) return null;
-    return phy - sys;
+    const diff = phy - sys;
+    return Math.abs(diff) < 0.0001 ? 0 : diff;
   };
 
   const submit = async () => {
@@ -206,7 +207,7 @@ export default function ReconciliationScreen() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { label: "Items entered", value: items.filter((i) => i.item_code).length, color: COLORS.text },
-                { label: "Total variance", value: `${totalVariance >= 0 ? "+" : ""}${totalVariance.toFixed(2)}`, color: totalVariance === 0 ? COLORS.success : totalVariance > 0 ? COLORS.teal : COLORS.coral },
+                { label: "Total variance", value: `${totalVariance > 0 ? "+" : ""}${totalVariance.toFixed(2)}`, color: Math.abs(totalVariance) < 0.0001 ? COLORS.success : totalVariance > 0 ? COLORS.teal : COLORS.coral },
                 { label: "Items surplus", value: items.filter((i) => (variance(i) ?? 0) > 0).length, color: COLORS.teal },
                 { label: "Items short", value: items.filter((i) => (variance(i) ?? 0) < 0).length, color: COLORS.coral },
                 { label: "Items matching", value: items.filter((i) => variance(i) === 0).length, color: COLORS.success },

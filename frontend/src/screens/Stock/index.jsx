@@ -742,6 +742,7 @@ export default function StockScreen() {
       const needed = item.min_alert_qty ? (item.min_alert_qty * 2) : 10;
       return `${idx + 1}. *${item.name}* - Needs approx. ${needed} ${item.unit} (Current: ${parseFloat(item.remaining).toFixed(1)} ${item.unit})`;
     }).join("\n");
+    const footer = "\n\nPlease check pricing and confirm delivery date.";
     navigator.clipboard.writeText(header + itemsText + footer);
     setMsg("PO copied to clipboard ✓");
     setTimeout(() => setMsg(""), 3000);
@@ -1181,7 +1182,11 @@ export default function StockScreen() {
         {/* List */}
         <Card style={{ padding: 0, overflow: "hidden", alignSelf: "start" }}>
           {/* Tabs header */}
-          <div style={{ padding: "10px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 16, alignItems: "center" }}>
+          <div 
+            role="tablist" 
+            aria-label="Stock Master Views"
+            style={{ padding: "10px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 16, alignItems: "center" }}
+          >
             {[
               { id: "inventory",   label: "📋 Inventory" },
               { id: "ledger",      label: "🔄 Ledger" },
@@ -1190,7 +1195,23 @@ export default function StockScreen() {
             ].map(({ id, label }) => (
               <button
                 key={id}
+                role="tab"
+                aria-selected={activeTab === id}
+                tabIndex={activeTab === id ? 0 : -1}
                 onClick={() => handleTabChange(id)}
+                onKeyDown={(e) => {
+                  const tabs = ["inventory", "ledger", "insights", "procurement"];
+                  const currentIndex = tabs.indexOf(id);
+                  if (e.key === "ArrowRight") {
+                    const nextId = tabs[(currentIndex + 1) % tabs.length];
+                    handleTabChange(nextId);
+                    e.currentTarget.parentElement.querySelector(`[aria-selected="true"]`)?.focus();
+                  } else if (e.key === "ArrowLeft") {
+                    const prevId = tabs[(currentIndex - 1 + tabs.length) % tabs.length];
+                    handleTabChange(prevId);
+                    e.currentTarget.parentElement.querySelector(`[aria-selected="true"]`)?.focus();
+                  }
+                }}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -1204,7 +1225,10 @@ export default function StockScreen() {
                   cursor: "pointer",
                   transition: "all 0.2s",
                   whiteSpace: "nowrap",
+                  outline: "none",
                 }}
+                onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${COLORS.teal}44`}
+                onBlur={(e) => e.currentTarget.style.boxShadow = "none"}
               >
                 {label}
               </button>

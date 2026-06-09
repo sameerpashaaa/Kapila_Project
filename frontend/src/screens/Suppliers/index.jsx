@@ -24,6 +24,7 @@ export default function SuppliersScreen() {
   const [performanceData, setPerformanceData] = useState(null);
   const [performanceLoading, setPerformanceLoading] = useState(false);
   const [poDrafting, setPoDrafting] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState(null);
 
   const toggleExpand = async (id) => {
@@ -62,6 +63,9 @@ export default function SuppliersScreen() {
 
   const submit = async () => {
     if (!form.name.trim()) return flash("Supplier name is required.", COLORS.coral);
+    if (form.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstin.trim())) {
+      return flash("Invalid GSTIN format.", COLORS.coral);
+    }
     try {
       if (editing) {
         await api.suppliers.update(editing, form);
@@ -84,11 +88,16 @@ export default function SuppliersScreen() {
 
   const cancelEdit = () => { setForm(empty); setEditing(null); };
 
-  const remove = async (id) => {
-    if (!confirm("Delete this supplier? This cannot be undone.")) return;
+  const remove = (id) => {
+    setDeleteConfirmId(id);
+  };
+
+  const executeRemove = async () => {
+    if (!deleteConfirmId) return;
     try {
-      await api.suppliers.remove(id);
+      await api.suppliers.remove(deleteConfirmId);
       flash("Supplier deleted.");
+      setDeleteConfirmId(null);
       load({ page: 1 });
     } catch (e) { flash(e.message, COLORS.coral); }
   };
@@ -198,7 +207,13 @@ export default function SuppliersScreen() {
                             </div>
                           </td>
                           <td style={{ padding: "12px 16px", color: COLORS.muted }}>{s.contact_name || "—"}</td>
-                          <td style={{ padding: "12px 16px", color: COLORS.muted }}>{s.phone || "—"}</td>
+                          <td style={{ padding: "12px 16px", color: COLORS.muted }}>
+                            {s.phone ? (
+                              <a href={`tel:${s.phone.replace(/[^0-9+]/g, '')}`} style={{ color: COLORS.accent, textDecoration: "none" }} onClick={e => e.stopPropagation()}>
+                                {s.phone}
+                              </a>
+                            ) : "—"}
+                          </td>
                           <td style={{ padding: "12px 16px" }}>
                             {s.gstin
                               ? <span style={{ fontFamily: "monospace", fontSize: 11, background: COLORS.bg, color: COLORS.teal, padding: "2px 6px", borderRadius: 4 }}>{s.gstin}</span>
@@ -437,6 +452,18 @@ export default function SuppliersScreen() {
           )}
         </Card>
       </div>
+      {deleteConfirmId && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Card style={{ maxWidth: 400, width: "100%", padding: 24 }}>
+            <h3 style={{ marginTop: 0, color: COLORS.text }}>Confirm Deletion</h3>
+            <p style={{ color: COLORS.muted, fontSize: 13, marginBottom: 20 }}>Are you sure you want to delete this supplier? This cannot be undone.</p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Btn variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</Btn>
+              <Btn variant="danger" onClick={executeRemove}>Delete</Btn>
+            </div>
+          </Card>
+        </div>
+      )}
     </Section>
   );
 }

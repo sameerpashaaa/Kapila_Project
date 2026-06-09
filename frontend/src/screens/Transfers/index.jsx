@@ -200,7 +200,10 @@ export default function TransfersScreen() {
             <Input label="Date" type="date" value={form.date} onChange={f("date")} />
             <div>
               <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 5 }}>From *</label>
-              <select value={form.from_location} onChange={f("from_location")}
+              <select value={form.from_location} onChange={(e) => {
+                  const val = e.target.value;
+                  setForm(p => ({ ...p, from_location: val, to_location: p.to_location === val ? LOCATIONS.find(l => l !== val) : p.to_location }));
+                }}
                 style={{ width: "100%", padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, fontSize: 13 }}>
                 {LOCATIONS.map((l) => <option key={l}>{l}</option>)}
               </select>
@@ -209,7 +212,7 @@ export default function TransfersScreen() {
               <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 5 }}>To *</label>
               <select value={form.to_location} onChange={f("to_location")}
                 style={{ width: "100%", padding: "8px 12px", background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, fontSize: 13 }}>
-                {LOCATIONS.map((l) => <option key={l}>{l}</option>)}
+                {LOCATIONS.map((l) => <option key={l} disabled={l === form.from_location}>{l}</option>)}
               </select>
             </div>
             <Input label="Initiated By" value={form.initiated_by} onChange={f("initiated_by")} placeholder="Your name" />

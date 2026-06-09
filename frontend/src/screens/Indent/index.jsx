@@ -666,7 +666,7 @@ export default function IndentScreen() {
           <datalist id="stock-names">{filteredStockNames.map((n) => <option key={n} value={n} />)}</datalist>
 
           <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-            <Btn variant="ghost" onClick={addRow} small style={{ flex: "1 1 45%" }}>+ Add item</Btn>
+            <Btn onClick={addRow} small style={{ flex: "1 1 45%" }}>+ Add Item</Btn>
             <Btn variant="ghost" onClick={() => { setSelectedItems({}); setShowModal(true); }} small style={{ flex: "1 1 45%", borderColor: COLORS.accent, color: COLORS.accent }}>⚡ Add Multi</Btn>
             
             <button 

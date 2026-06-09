@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import Section from "../../components/Section";
 import Card from "../../components/Card";
 import Btn from "../../components/Btn";
@@ -13,7 +13,7 @@ import * as api from "../../api";
 
 const LIMIT = 20;
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyItem = { item_code: "", name: "", qty_ordered: "", qty_received: "", qty_accepted: "", qty_rejected: "0", unit: UNITS[0], unit_price: "", landed_cost: "", batch_no: "", expiry_date: "" };
+const emptyItem = { item_code: "", name: "", qty_ordered: "", qty_received: "", qty_accepted: "", qty_rejected: "0", unit: UNITS[0], unit_price: "", landed_cost: "", batch_no: "", expiry_date: "", discrepancy_reason: "" };
 
 export default function GoodsReceiptScreen() {
   const { stocks, refreshStockNames } = useAppContext();
@@ -61,6 +61,7 @@ export default function GoodsReceiptScreen() {
         landed_cost: String(it.qty * it.unit_price),
         batch_no: "",
         expiry_date: "",
+        discrepancy_reason: "",
       }));
       setLineItems(poItems.length > 0 ? poItems : [{ ...emptyItem }]);
     }).catch(() => {});
@@ -108,6 +109,19 @@ export default function GoodsReceiptScreen() {
     if (!form.supplier_id) return flash("Please select a supplier.", COLORS.coral);
     const validLines = lineItems.filter((it) => it.name && it.qty_received && it.qty_accepted);
     if (validLines.length === 0) return flash("Add at least one item with received & accepted qty.", COLORS.coral);
+
+    const hasUnexplainedDiscrepancy = validLines.some((it) => {
+       const ordered = parseFloat(it.qty_ordered);
+       const received = parseFloat(it.qty_received);
+       if (!isNaN(ordered) && received !== ordered && !(it.discrepancy_reason || "").trim()) {
+         return true;
+       }
+       return false;
+    });
+
+    if (hasUnexplainedDiscrepancy) {
+      return flash("Please provide a reason for all quantity discrepancies.", COLORS.coral);
+    }
 
     try {
       const payload = {
@@ -298,8 +312,11 @@ export default function GoodsReceiptScreen() {
                 </tr>
               </thead>
               <tbody>
-                {lineItems.map((it, idx) => (
-                  <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}22` }}>
+                {lineItems.map((it, idx) => {
+                  const hasRowDiscrepancy = it.qty_ordered && parseFloat(it.qty_received) !== parseFloat(it.qty_ordered);
+                  return (
+                  <Fragment key={idx}>
+                  <tr style={{ borderBottom: hasRowDiscrepancy ? "none" : `1px solid ${COLORS.border}22` }}>
                     <td style={{ padding: "4px 6px" }}>
                       <input list="stock-names" value={it.name} onChange={(e) => updateLine(idx, "name", e.target.value)} placeholder="Item name"
                         style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4, padding: "5px 7px", fontSize: 12, width: 130 }} />
@@ -308,12 +325,24 @@ export default function GoodsReceiptScreen() {
                       <input value={it.item_code} onChange={(e) => updateLine(idx, "item_code", e.target.value)} placeholder="KPL-###"
                         style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.teal, borderRadius: 4, padding: "5px 7px", fontSize: 11, width: 80, fontFamily: "monospace" }} />
                     </td>
-                    {["qty_ordered", "qty_received", "qty_accepted"].map((key) => (
-                      <td key={key} style={{ padding: "4px 6px" }}>
-                        <input type="number" min="0" step="any" value={it[key]} onChange={(e) => updateLine(idx, key, e.target.value)}
-                          style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4, padding: "5px 7px", fontSize: 12, width: 65 }} />
-                      </td>
-                    ))}
+                    {["qty_ordered", "qty_received", "qty_accepted"].map((key) => {
+                      const isReceived = key === "qty_received";
+                      const hasDiscrepancy = isReceived && it.qty_ordered && parseFloat(it.qty_received) !== parseFloat(it.qty_ordered);
+                      return (
+                        <td key={key} style={{ padding: "4px 6px", position: "relative" }}>
+                          <input type="number" min="0" step="any" value={it[key]} onChange={(e) => updateLine(idx, key, e.target.value)}
+                            style={{ 
+                              background: hasDiscrepancy ? COLORS.coral + "22" : COLORS.bg, 
+                              border: `1px solid ${hasDiscrepancy ? COLORS.coral : COLORS.border}`, 
+                              color: hasDiscrepancy ? COLORS.coral : COLORS.text, 
+                              borderRadius: 4, padding: "5px 7px", fontSize: 12, width: 65 
+                            }} />
+                          {hasDiscrepancy && (
+                            <span title="Quantity mismatch from PO" style={{ position: "absolute", right: 10, top: 12, fontSize: 10 }}>⚠️</span>
+                          )}
+                        </td>
+                      );
+                    })}
                     <td style={{ padding: "4px 8px", color: parseFloat(it.qty_rejected) > 0 ? COLORS.coral : COLORS.muted, fontWeight: 600, fontSize: 12 }}>
                       {it.qty_rejected || 0}
                     </td>
@@ -340,7 +369,26 @@ export default function GoodsReceiptScreen() {
                       {lineItems.length > 1 && <Btn small variant="danger" onClick={() => removeLine(idx)}>✕</Btn>}
                     </td>
                   </tr>
-                ))}
+                  {hasRowDiscrepancy && (
+                    <tr style={{ borderBottom: `1px solid ${COLORS.border}22`, background: COLORS.coral + "0A" }}>
+                      <td colSpan={12} style={{ padding: "8px 12px 12px 12px" }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 16 }}>⚠️</span>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: 11, color: COLORS.coral, fontWeight: 600, display: "block", marginBottom: 4 }}>Reason for Discrepancy *</label>
+                            <input 
+                              value={it.discrepancy_reason || ""} 
+                              onChange={(e) => updateLine(idx, "discrepancy_reason", e.target.value)} 
+                              placeholder="Why does the received quantity differ from the PO?"
+                              style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: `1px solid ${COLORS.coral}88`, borderRadius: 4, background: COLORS.bg, color: COLORS.text }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                )})}
               </tbody>
             </table>
           </div>

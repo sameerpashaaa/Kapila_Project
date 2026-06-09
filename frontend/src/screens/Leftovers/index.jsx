@@ -52,7 +52,10 @@ export default function LeftoverScreen() {
               {["plates", "portions", "kg", "L", "pcs"].map((u) => <option key={u}>{u}</option>)}
             </Select>
           </div>
-          <Btn onClick={submit} style={{ width: "100%" }}>Record Leftover</Btn>
+          <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+            <Btn onClick={submit} style={{ flex: 1 }}>Record Leftover</Btn>
+            <Btn variant="ghost" onClick={() => setForm({ dept: DEPARTMENTS[0], date: today(), item: "", qty: "", unit: "plates" })}>Clear</Btn>
+          </div>
           {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 8, textAlign: "center" }}>{msg}</p>}
         </Card>
 
