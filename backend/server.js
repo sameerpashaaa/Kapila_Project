@@ -21,6 +21,7 @@ app.use("/api/purchase-orders", require("./routes/purchaseOrders"));
 app.use("/api/grn",             require("./routes/grn"));
 app.use("/api/transfers",       require("./routes/transfers"));
 app.use("/api/reorder-points",  require("./routes/reorderPoints"));
+app.use("/api/approved-delivery", require("./routes/approvedDelivery"));
 app.use("/api",                 require("./routes/recipes"));
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));

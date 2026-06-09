@@ -10,6 +10,7 @@ import { COLORS, UNITS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import { useAppContext } from "../../context/AppContext";
 import * as api from "../../api";
+import SupplierDocUpload from "./SupplierDocUpload";
 
 const LIMIT = 20;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -22,6 +23,7 @@ export default function GoodsReceiptScreen() {
   const [supplierList, setSupplierList] = useState([]);
   const [poList, setPoList]     = useState([]);
   const [msg, setMsg]           = useState("");
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Form
   const [form, setForm]         = useState({ po_id: "", supplier_id: "", date: today(), invoice_no: "", received_by: "", remarks: "" });
@@ -424,7 +426,10 @@ export default function GoodsReceiptScreen() {
           <option value="">All Suppliers</option>
           {supplierList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
+          <Btn onClick={() => setShowUploadModal(true)} style={{ background: COLORS.brand }}>
+            ✨ Scan Delivery Doc (AI)
+          </Btn>
           <Btn onClick={() => setView("create")}>+ New GRN</Btn>
         </div>
       </div>
@@ -477,6 +482,17 @@ export default function GoodsReceiptScreen() {
           </>
         )}
       </Card>
+
+      {showUploadModal && (
+        <SupplierDocUpload
+          supplierList={supplierList}
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={() => {
+            setShowUploadModal(false);
+            load({ page: 1 });
+          }}
+        />
+      )}
     </Section>
   );
 }

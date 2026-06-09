@@ -105,3 +105,10 @@ export const menu = {
   update: (id, body) => api.patch(`/menu/${id}`, body),
   remove: (id) => api.delete(`/menu/${id}`),
 };
+
+export const approvedDelivery = {
+  // multipart upload: file (PDF/image) + supplier_id
+  scan:   (formData) => api.postUpload("/approved-delivery/scan", formData),
+  // JSON commit after user review
+  commit: (body)     => api.post("/approved-delivery/commit", body),
+};
