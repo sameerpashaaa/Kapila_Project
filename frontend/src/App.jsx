@@ -173,7 +173,7 @@ function Inner() {
             {NAV_CATEGORIES.map((cat) => (
               <div key={cat.title} style={{ marginBottom: 4 }}>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)",
+                  fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)",
                   textTransform: "uppercase", letterSpacing: "0.08em",
                   padding: "8px 12px 4px", userSelect: "none"
                 }}>
@@ -203,11 +203,11 @@ function Inner() {
                         cursor: "pointer",
                         position: "relative"
                       }}
-                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#e2e8f0"; }}
+                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#ffffff"; }}
                       onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--sidebar-text)"; } }}
                     >
                       <span style={{ 
-                        color: isActive ? "rgba(255,255,255,0.9)" : "#64748b",
+                        color: isActive ? "rgba(255,255,255,0.9)" : "#94a3b8",
                         display: "flex", flexShrink: 0
                       }}>
                         {n.icon}
@@ -247,7 +247,7 @@ function Inner() {
               width: 6, height: 6, borderRadius: "50%",
               background: "#10B981"
             }} className="pulse" />
-            <span style={{ fontSize: 11, color: "var(--sidebar-category)", fontWeight: 500 }}>PostgreSQL · Live</span>
+            <span style={{ fontSize: 11, color: "var(--sidebar-category)", fontWeight: 500 }}>PostgreSQL · Live v1.0.0</span>
           </div>
         </aside>
 

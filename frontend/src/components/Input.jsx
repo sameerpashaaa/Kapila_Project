@@ -2,9 +2,9 @@ import { COLORS } from "../styles/colors";
 
 export default function Input({ label, ...props }) {
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: 12 }}>
       {label && (
-        <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 5 }}>
+        <label style={{ fontSize: 12, fontWeight: 500, color: COLORS.muted, display: "block" }}>
           {label}
         </label>
       )}
@@ -12,3 +12,4 @@ export default function Input({ label, ...props }) {
     </div>
   );
 }
+

@@ -4,17 +4,17 @@ export const COLORS = {
   brandLight:"#ecfdf5", // Very light mint — hover backgrounds
   success:   "#10b981", // Positive states (same as brand)
   warning:   "#f59e0b", // Watch/caution states
-  danger:    "#ef4444", // Errors, critical alerts
-  text:      "#1e293b", // Body text
-  muted:     "#64748b", // Labels, subtitles
-  bg:        "var(--color-bg-page)", // Page background (barely-blue white)
+  danger:    "#f43f5e", // Errors, critical alerts (rose)
+  text:      "#0f172a", // Body text (slate-950)
+  muted:     "#64748b", // Labels, subtitles (slate-500)
+  bg:        "var(--color-bg-page)", // Page background (slate-100)
   surface:   "var(--color-bg-card)", // Cards, panels
   border:    "var(--color-border)", // Borders, dividers
 
   // Legacy aliases to prevent breaking other screens
   accent:    "#10b981",
   accentDim: "#059669",
-  coral:     "#ef4444",
+  coral:     "#f43f5e",
   teal:      "#10b981",
   purple:    "#8b5cf6",
   primary:   "#8b5cf6",
@@ -33,10 +33,10 @@ export const globalCss = `
 
   :root {
     /* --- Type Scale --- */
-    --text-label:  11px;    /* uppercase column headers, form labels */
-    --text-data:   13px;    /* table data, body text */
-    --text-body:   13.5px;  /* paragraphs, descriptions */
-    --text-kpi:    20px;    /* KPI values */
+    --text-label:  12px;    /* form labels, small headers */
+    --text-data:   13.5px;  /* table data, regular text */
+    --text-body:   14px;    /* body text, descriptions */
+    --text-kpi:    24px;    /* KPI values */
     --text-title:  15px;    /* Section / panel titles */
 
     /* --- Spacing --- */
@@ -46,30 +46,30 @@ export const globalCss = `
     --gap-lg: 24px;
     
     /* --- Sidebar --- */
-    --sidebar-bg: #1e293b;
-    --sidebar-border: #334155;
+    --sidebar-bg: #0f172a;
+    --sidebar-border: #1e293b;
     --sidebar-text: #94a3b8;
     --sidebar-active-bg: #10b981;
-    --sidebar-hover-bg: #334155;
-    --sidebar-category: #475569;
+    --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+    --sidebar-category: #64748b;
 
     /* --- Kapila IMS Stock Master Redesign Tokens --- */
-    --color-bg-page:        #F4F6F9;
-    --color-bg-card:        #FFFFFF;
-    --color-bg-sidebar:     #0F172A;
-    --color-accent-green:   #10B981;
-    --color-accent-green-light: #D1FAE5;
-    --color-accent-amber:   #F59E0B;
-    --color-accent-amber-light: #FEF3C7;
-    --color-accent-red:     #EF4444;
-    --color-accent-red-light: #FEE2E2;
-    --color-accent-blue:    #3B82F6;
-    --color-accent-blue-light: #EFF6FF;
-    --color-text-primary:   #111827;
-    --color-text-secondary: #6B7280;
-    --color-text-muted:     #9CA3AF;
-    --color-border:         #E5E7EB;
-    --color-border-strong:  #D1D5DB;
+    --color-bg-page:        #f1f5f9;
+    --color-bg-card:        #ffffff;
+    --color-bg-sidebar:     #0f172a;
+    --color-accent-green:   #10b981;
+    --color-accent-green-light: #ecfdf5;
+    --color-accent-amber:   #f59e0b;
+    --color-accent-amber-light: #fef3c7;
+    --color-accent-red:     #f43f5e;
+    --color-accent-red-light: #fff1f2;
+    --color-accent-blue:    #3b82f6;
+    --color-accent-blue-light: #eff6ff;
+    --color-text-primary:   #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted:     #64748b;
+    --color-border:         #e2e8f0;
+    --color-border-strong:  #cbd5e1;
     --radius-sm:            6px;
     --radius-md:            10px;
     --radius-lg:            14px;
@@ -90,10 +90,13 @@ export const globalCss = `
     -webkit-font-smoothing: antialiased;
   }
   #root { height: 100%; }
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  
+  /* --- Scrollbar Styling --- */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  
   input, select, textarea {
     background: #ffffff;
     border: 1px solid var(--color-border);
@@ -112,52 +115,100 @@ export const globalCss = `
   }
   select option { background: #ffffff; color: var(--color-text-primary); }
   button { cursor: pointer; font-family: 'Inter', sans-serif; font-size: var(--text-data); font-weight: 500; border: none; border-radius: 8px; transition: all 0.15s; }
+  
+  /* --- Table Styling --- */
   table { width: 100%; border-collapse: collapse; font-size: var(--text-data); }
   th {
     text-align: left;
-    padding: 10px 16px;
+    padding: 12px 16px;
     color: var(--color-text-secondary);
     font-weight: 600;
     font-size: var(--text-label);
-    letter-spacing: 0.07em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--color-border);
     background: #f8fafc;
     white-space: nowrap;
   }
   td {
-    padding: 11px 16px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
     font-size: var(--text-data);
     color: var(--color-text-primary);
+    transition: background-color 0.15s ease;
   }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #f0fdf4; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: var(--color-accent-green-light); }
+  
+  /* --- Row Actions --- */
+  .row-actions { transition: opacity 0.15s; opacity: 0.7; }
   tr:hover .row-actions { opacity: 1; }
-  .row-actions { transition: opacity 0.15s; opacity: 0.4; }
   .row-actions:hover { opacity: 1; }
   .danger-hover:hover { color: var(--color-accent-red) !important; border-color: var(--color-accent-red) !important; }
+  
+  /* --- Badge & Chip Utilities --- */
   .badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    border-radius: 20px;
+    border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
   }
-  .stock-table th, .stock-table td { padding: 10px 14px; }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+  }
+  .chip:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+  .chip.active {
+    background: var(--color-accent-green-light);
+    color: var(--color-accent-green);
+    border-color: var(--color-accent-green);
+  }
+
+  .stock-table th, .stock-table td { padding: 12px 14px; }
+  
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
   }
   .pulse { animation: pulse 2s infinite; }
+  
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .fade-in { animation: fadeIn 0.2s ease-out; }
 `;
+
 

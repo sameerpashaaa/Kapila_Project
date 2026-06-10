@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import Section from "../../components/Section";
 import Card from "../../components/Card";
 import Btn from "../../components/Btn";
@@ -13,7 +13,13 @@ import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
 import { useLocalSpeech } from "../../hooks/useLocalSpeech";
 import QRCode from "qrcode";
-import { Banknote, PackageOpen, AlertTriangle, Filter, Users, Calendar, Tags } from "lucide-react";
+import {
+  Banknote, PackageOpen, AlertTriangle, Filter, Users, Calendar, Tags,
+  TrendingDown, ShoppingCart, Clock, ClipboardList, Package, CheckCircle,
+  AlertCircle, LayoutList, RefreshCw, BarChart2, ShoppingBag, Printer,
+  Edit3, Search, PlusCircle, Trash2, ArrowRight, Download, Eye, AlertOctagon,
+  Send
+} from "lucide-react";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const LIMIT = 20;
@@ -48,6 +54,41 @@ const getItemEmoji = (name) => {
   if (cleanName.includes("lemon") || cleanName.includes("juice") || cleanName.includes("apple") || cleanName.includes("banana") || cleanName.includes("fruit") || cleanName.includes("orange")) return "🍎";
   return "📦";
 };
+
+const getInitialsAvatar = (name) => {
+  if (!name) return { text: "??", bg: "#f1f5f9", fg: "#64748b" };
+  const clean = name.trim().replace(/[^a-zA-Z0-9\s]/g, "");
+  const parts = clean.split(/\s+/).filter(Boolean);
+  let text = "";
+  if (parts.length >= 2) {
+    text = (parts[0][0] + parts[1][0]).toUpperCase();
+  } else if (parts.length === 1) {
+    text = parts[0].slice(0, 2).toUpperCase();
+  } else {
+    text = "ST";
+  }
+  
+  // Hashing to pick a color palette
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  const colors = [
+    { bg: "#eff6ff", fg: "#1d4ed8" }, // Blue
+    { bg: "#ecfdf5", fg: "#047857" }, // Emerald
+    { bg: "#fef3c7", fg: "#b45309" }, // Amber
+    { bg: "#fff1f2", fg: "#be123c" }, // Rose
+    { bg: "#f5f3ff", fg: "#6d28d9" }, // Purple
+    { bg: "#ecfeff", fg: "#0e7490" }, // Cyan
+    { bg: "#f0fdf4", fg: "#15803d" }, // Green
+    { bg: "#fff7ed", fg: "#c2410c" }, // Orange
+  ];
+  
+  const index = Math.abs(hash) % colors.length;
+  return { text, ...colors[index] };
+};
+
 
 const PriceTrendChart = ({ points }) => {
   if (!points || points.length < 2) {
@@ -729,9 +770,9 @@ export default function StockScreen() {
       {/* KPI Strip */}
       <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
         {[ 
-          { id: "total", label: "Total Active Spend", value: stats.total_spend, color: COLORS.teal, icon: <Banknote size={16} /> },
-          { id: "active", label: "Current Store Value", value: stats.store_value, color: COLORS.accent, icon: <PackageOpen size={16} /> },
-          { id: "low", label: "Low Stock Value", value: stats.low_stock_value, color: COLORS.coral, icon: <AlertTriangle size={16} /> }
+          { id: "total", label: "Total Active Spend", value: stats.total_spend, color: COLORS.teal, icon: <Banknote size={20} /> },
+          { id: "active", label: "Current Store Value", value: stats.store_value, color: COLORS.accent, icon: <PackageOpen size={20} /> },
+          { id: "low", label: "Low Stock Value", value: stats.low_stock_value, color: COLORS.danger, icon: <AlertTriangle size={20} /> }
         ].map((kpi) => {
           const isActive = (kpi.id === "total" && isTotalActive) || (kpi.id === "active" && isActiveActive) || (kpi.id === "low" && isLowActive);
           return (
@@ -740,27 +781,30 @@ export default function StockScreen() {
               onClick={() => handleStatCardClick(kpi.id)}
               style={{ 
                 flex: 1,
-                padding: "10px 14px", 
+                padding: "14px 20px", 
                 display: "flex", 
                 alignItems: "center", 
-                gap: 12, 
+                gap: 14, 
                 cursor: "pointer", 
-                transition: "all 0.2s ease",
-                border: isActive ? `1px solid ${kpi.color}` : `1px solid ${COLORS.border}`,
-                boxShadow: isActive ? `0 0 12px ${kpi.color}22` : "none",
-                transform: isActive ? "translateY(-1px)" : "none"
+                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                border: `1px solid ${COLORS.border}`,
+                borderTop: isActive ? `3px solid ${kpi.color}` : `1px solid ${COLORS.border}`,
+                boxShadow: isActive ? "0 4px 12px rgba(0,0,0,0.06)" : "none",
+                transform: isActive ? "translateY(-1px)" : "none",
+                paddingTop: isActive ? "12px" : "14px" // offset to keep overall height consistent
               }}
             >
               <div style={{ 
                 display: "flex", alignItems: "center", justifyContent: "center", 
-                width: 32, height: 32, borderRadius: 8, 
-                background: kpi.color + "15", color: kpi.color 
+                width: 40, height: 40, borderRadius: 8, 
+                background: kpi.color + "15", color: kpi.color,
+                flexShrink: 0
               }}>
                 {kpi.icon}
               </div>
               <div>
-                <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{kpi.label}</p>
-                <p style={{ fontFamily: "'DM Serif Display'", fontSize: 20, color: COLORS.text, letterSpacing: "-0.02em" }}>₹{parseFloat(kpi.value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p style={{ fontSize: 12, fontWeight: 500, color: COLORS.muted, marginBottom: 2 }}>{kpi.label}</p>
+                <p style={{ fontSize: 24, fontWeight: 700, color: COLORS.text, lineHeight: 1.1 }}>₹{parseFloat(kpi.value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </Card>
           );
@@ -774,14 +818,14 @@ export default function StockScreen() {
           <div 
             role="tablist" 
             aria-label="Stock Master Views"
-            style={{ padding: "10px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 16, alignItems: "center" }}
+            style={{ padding: "12px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "center" }}
           >
             {[
-              { id: "inventory",   label: "📋 Inventory" },
-              { id: "ledger",      label: "🔄 Ledger" },
-              { id: "insights",    label: "📊 Cost Insights" },
-              { id: "procurement", label: "🧾 Procurement" },
-            ].map(({ id, label }) => (
+              { id: "inventory",   label: "Inventory",     icon: <LayoutList size={14} /> },
+              { id: "ledger",      label: "Ledger",        icon: <RefreshCw size={14} /> },
+              { id: "insights",    label: "Cost Insights", icon: <BarChart2 size={14} /> },
+              { id: "procurement", label: "Procurement",   icon: <ShoppingBag size={14} /> },
+            ].map(({ id, label, icon }) => (
               <button
                 key={id}
                 role="tab"
@@ -802,29 +846,29 @@ export default function StockScreen() {
                   }
                 }}
                 style={{
-                  background: "transparent",
+                  background: activeTab === id ? COLORS.brand + "15" : "transparent",
                   border: "none",
-                  borderBottom: activeTab === id ? `2px solid ${COLORS.accent}` : "2px solid transparent",
-                  color: activeTab === id ? COLORS.accent : COLORS.muted,
-                  padding: "8px 4px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
+                  color: activeTab === id ? COLORS.brand : COLORS.muted,
+                  padding: "8px 12px",
+                  fontSize: 13.5,
+                  fontWeight: activeTab === id ? 600 : 500,
                   cursor: "pointer",
-                  transition: "all 0.2s",
+                  transition: "all 0.15s ease",
                   whiteSpace: "nowrap",
                   outline: "none",
+                  borderRadius: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6
                 }}
-                onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${COLORS.teal}44`}
-                onBlur={(e) => e.currentTarget.style.boxShadow = "none"}
               >
+                {icon}
                 {label}
               </button>
             ))}
             <div style={{ marginLeft: "auto" }}>
-              <Btn small variant="ghost" onClick={exportCSV} title="Export current view to CSV">
-                ⬇ CSV
+              <Btn small variant="ghost" onClick={exportCSV} icon={<Download size={14} />} title="Export current view to CSV">
+                Export CSV
               </Btn>
             </div>
           </div>
@@ -833,8 +877,8 @@ export default function StockScreen() {
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
               <div style={{ padding: "14px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", background: COLORS.bg + "22", flexShrink: 0 }}>
                 <SearchBar onSearch={(q) => load({ page: 1, q })} placeholder="Search items…" style={{ flex: 1, minWidth: 200 }} />
-                <Btn variant="ghost" small onClick={() => setGroupByItem(!groupByItem)} style={{ fontSize: 11, padding: "7px 10px", border: `1px solid ${COLORS.border}` }}>
-                  {groupByItem ? "📋 View All Batches" : "📊 Group by Item"}
+                <Btn variant="ghost" small onClick={() => setGroupByItem(!groupByItem)} icon={groupByItem ? <LayoutList size={12} /> : <BarChart2 size={12} />} style={{ fontSize: 12, padding: "6px 12px" }}>
+                  {groupByItem ? "View All Batches" : "Group by Item"}
                 </Btn>
                 
                 <div style={{ height: "24px", width: "1px", background: COLORS.border, margin: "0 6px" }}></div>
@@ -843,14 +887,8 @@ export default function StockScreen() {
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     onClick={() => handleFilterChange("low_stock", filters.low_stock === "true" ? "" : "true")}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "6px 12px", fontSize: 11, fontWeight: 600,
-                      background: filters.low_stock === "true" ? COLORS.coral + "15" : "transparent",
-                      color: filters.low_stock === "true" ? COLORS.coral : COLORS.muted,
-                      border: `1px solid ${filters.low_stock === "true" ? COLORS.coral + "44" : COLORS.border}`,
-                      borderRadius: 16, cursor: "pointer", transition: "all 0.2s"
-                    }}
+                    className={filters.low_stock === "true" ? "chip active" : "chip"}
+                    style={{ fontSize: 12 }}
                   >
                     <Filter size={12} /> Low Stock
                   </button>
@@ -858,16 +896,20 @@ export default function StockScreen() {
                   <select
                     value={filters.expiry_status}
                     onChange={(e) => handleFilterChange("expiry_status", e.target.value)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "6px 12px", fontSize: 11, fontWeight: 600,
-                      background: filters.expiry_status ? COLORS.accent + "15" : "transparent",
-                      color: filters.expiry_status ? COLORS.accent : COLORS.muted,
-                      border: `1px solid ${filters.expiry_status ? COLORS.accent + "44" : COLORS.border}`,
-                      borderRadius: 16, cursor: "pointer", outline: "none", appearance: "none"
+                    className={filters.expiry_status ? "chip active" : "chip"}
+                    style={{ 
+                      fontSize: 12, 
+                      paddingRight: "24px", 
+                      appearance: "none", 
+                      backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, 
+                      backgroundRepeat: "no-repeat", 
+                      backgroundPosition: "right 8px center", 
+                      backgroundSize: "10px",
+                      cursor: "pointer",
+                      outline: "none"
                     }}
                   >
-                    <option value="">⏱️ All Expiry</option>
+                    <option value="">All Expiry</option>
                     <option value="expired">Expired</option>
                     <option value="expiring">Expiring Soon</option>
                     <option value="fresh">Fresh</option>
@@ -876,16 +918,20 @@ export default function StockScreen() {
                   <select
                     value={filters.supplier}
                     onChange={(e) => handleFilterChange("supplier", e.target.value)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "6px 12px", fontSize: 11, fontWeight: 600,
-                      background: filters.supplier ? COLORS.teal + "15" : "transparent",
-                      color: filters.supplier ? COLORS.teal : COLORS.muted,
-                      border: `1px solid ${filters.supplier ? COLORS.teal + "44" : COLORS.border}`,
-                      borderRadius: 16, cursor: "pointer", outline: "none", appearance: "none"
+                    className={filters.supplier ? "chip active" : "chip"}
+                    style={{ 
+                      fontSize: 12, 
+                      paddingRight: "24px", 
+                      appearance: "none", 
+                      backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, 
+                      backgroundRepeat: "no-repeat", 
+                      backgroundPosition: "right 8px center", 
+                      backgroundSize: "10px",
+                      cursor: "pointer",
+                      outline: "none"
                     }}
                   >
-                    <option value="">🚚 All Suppliers</option>
+                    <option value="">All Suppliers</option>
                     {uniqueSuppliers.map((sup) => <option key={sup} value={sup}>{sup}</option>)}
                   </select>
                 </div>
@@ -922,27 +968,47 @@ export default function StockScreen() {
                           const avgCost = item.batchCount > 0 ? (item.totalCost / item.batchCount) : 0;
 
                           return (
-                            <>
-                              <tr key={idx} onClick={() => toggleExpandItem(item.name)} style={{ cursor: "pointer", transition: "background 0.2s" }}>
+                            <Fragment key={idx}>
+                              <tr onClick={() => toggleExpandItem(item.name)} style={{ cursor: "pointer", transition: "background 0.2s" }}>
                                 <td style={{ fontWeight: 600 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                     <span style={{ fontSize: 10, color: COLORS.muted }}>{isExpanded ? "▼" : "▶"}</span>
-                                    <span style={{ fontSize: 16 }}>{getItemEmoji(item.name)}</span>
+                                    {(() => {
+                                      const avatar = getInitialsAvatar(item.name);
+                                      return (
+                                        <div style={{
+                                          width: 32,
+                                          height: 32,
+                                          borderRadius: "50%",
+                                          background: avatar.bg,
+                                          color: avatar.fg,
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          fontSize: 12,
+                                          fontWeight: 600,
+                                          flexShrink: 0
+                                        }}>
+                                          {avatar.text}
+                                        </div>
+                                      );
+                                    })()}
                                     <div>
-                                      <span style={{ color: COLORS.accent, fontSize: 10, display: "block" }}>{item.item_code}</span>
-                                      <span>{item.name}</span>
+                                      <span style={{ color: COLORS.accent, fontSize: 10, display: "block", fontWeight: 600, letterSpacing: "0.04em" }}>{item.item_code}</span>
+                                      <span style={{ fontSize: "14px", color: COLORS.text }}>{item.name}</span>
                                     </div>
                                   </div>
                                 </td>
                                 <td>{item.batches.length} batch(es)</td>
-                                <td style={{ fontWeight: 500, color: healthy ? COLORS.success : COLORS.coral }}>
+                                <td style={{ fontWeight: 500, color: healthy ? COLORS.success : COLORS.danger }}>
                                   {item.remaining.toFixed(2)} {item.unit}
                                 </td>
                                 <td>{avgCost > 0 ? `₹${avgCost.toFixed(2)}` : "—"}</td>
                                 <td style={{ fontWeight: 600, color: COLORS.teal }}>₹{totalVal.toFixed(2)}</td>
                                 <td>
-                                  <span className="badge" style={{ background: healthy ? COLORS.success + "22" : COLORS.coral + "22", color: healthy ? COLORS.success : COLORS.coral }}>
-                                    {healthy ? "🟢 Healthy" : "🔴 Low Stock"}
+                                  <span className="status-badge" style={{ background: healthy ? "var(--color-accent-green-light)" : "var(--color-accent-red-light)", color: healthy ? "var(--color-accent-green)" : "var(--color-accent-red)" }}>
+                                    {healthy ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
+                                    {healthy ? "Healthy" : "Low Stock"}
                                   </span>
                                 </td>
                               </tr>
@@ -951,25 +1017,27 @@ export default function StockScreen() {
                                   <td colSpan="6" style={{ padding: "10px 14px 16px 30px", background: COLORS.bg + "22" }}>
                                     <div style={{ border: `1px solid ${COLORS.border}55`, borderRadius: 8, padding: "14px 20px", background: COLORS.surface + "aa" }}>
                                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                                        <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.06em" }}>📈 FIFO Batch Pipeline & Expiry Log</p>
+                                        <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", fontWeight: 600, letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
+                                          <ClipboardList size={14} /> FIFO Batch Pipeline & Expiry Log
+                                        </p>
                                         <span style={{ fontSize: 10, color: COLORS.muted, fontStyle: "italic" }}>Oldest batches are consumed first (FIFO order)</span>
                                       </div>
 
                                       <div style={{ position: "relative", borderLeft: `2px solid ${COLORS.border}`, paddingLeft: 20, marginLeft: 6, display: "flex", flexDirection: "column", gap: 12 }}>
                                         {item.batches.map((b) => {
                                           const bPct = b.qty > 0 ? (b.remaining / b.qty) * 100 : 0;
-                                          const bColor = bPct > 50 ? COLORS.success : bPct > 20 ? COLORS.accent : COLORS.coral;
+                                          const bColor = bPct > 50 ? COLORS.success : bPct > 20 ? COLORS.accent : COLORS.danger;
                                           
                                           // Determine dot color
                                           let dotColor = COLORS.success;
                                           if (b.remaining <= 0) dotColor = COLORS.muted;
-                                          else if (bPct < 25) dotColor = COLORS.coral;
+                                          else if (bPct < 25) dotColor = COLORS.danger;
                                           else if (bPct < 50) dotColor = COLORS.accent;
                                           
                                           // Expiry check
                                           const todayVal = new Date(today());
                                           const isExpired = b.expiry_date && new Date(b.expiry_date) < todayVal;
-                                          if (isExpired && b.remaining > 0) dotColor = COLORS.coral;
+                                          if (isExpired && b.remaining > 0) dotColor = COLORS.danger;
 
                                           return (
                                             <div key={b.id} style={{ position: "relative" }}>
@@ -1003,13 +1071,14 @@ export default function StockScreen() {
                                                     <span style={{ fontFamily: "monospace", fontSize: 11, color: COLORS.purple, background: COLORS.purple + "18", padding: "2px 6px", borderRadius: 4 }}>{b.item_code}</span>
                                                     <span style={{ fontSize: 11, color: COLORS.muted }}>Recd: {b.date}</span>
                                                     {b.expiry_date && (
-                                                      <span className="badge" style={{ 
-                                                        background: isExpired ? "#7f1d1d22" : "#14532d22", 
-                                                        color: isExpired ? COLORS.coral : COLORS.success,
-                                                        fontSize: 9,
-                                                        padding: "1px 6px"
+                                                      <span className="status-badge" style={{ 
+                                                        background: isExpired ? "var(--color-accent-red-light)" : "var(--color-accent-green-light)", 
+                                                        color: isExpired ? "var(--color-accent-red)" : "var(--color-accent-green)",
+                                                        fontSize: 10,
+                                                        padding: "2px 6px"
                                                       }}>
-                                                        {isExpired ? "🔴 Expired" : `🟢 Exp: ${b.expiry_date}`}
+                                                        {isExpired ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                                                        {isExpired ? "Expired" : `Exp: ${b.expiry_date}`}
                                                       </span>
                                                     )}
                                                   </div>
@@ -1022,7 +1091,7 @@ export default function StockScreen() {
                                                     <span style={{ color: bColor, fontWeight: 600 }}>{parseFloat(b.remaining).toFixed(1)} / {b.qty} {b.unit}</span>
                                                     <span style={{ color: COLORS.muted }}>({bPct.toFixed(0)}%)</span>
                                                   </div>
-                                                  <div style={{ height: 4, background: COLORS.border + "55", borderRadius: 2, overflow: "hidden" }}>
+                                                  <div style={{ height: 6, background: COLORS.border + "55", borderRadius: 3, overflow: "hidden" }}>
                                                     <div style={{ height: "100%", width: `${bPct}%`, background: bColor }} />
                                                   </div>
                                                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: COLORS.muted }}>
@@ -1033,14 +1102,18 @@ export default function StockScreen() {
 
                                                 {/* Right action controls */}
                                                 <div style={{ display: "flex", gap: 6 }}>
-                                                  <Btn variant="ghost" small onClick={() => setPrintModalItem(b)} title="Print Label" style={{ padding: "4px 8px", border: `1px solid ${COLORS.border}` }}>🏷️</Btn>
+                                                  <Btn variant="ghost" small onClick={() => setPrintModalItem(b)} title="Print Label" style={{ padding: "6px 8px", border: `1px solid ${COLORS.border}` }}>
+                                                    <Printer size={14} />
+                                                  </Btn>
                                                   <Btn variant="ghost" small onClick={() => {
                                                     setAdjustModalItem(b);
                                                     setAdjustQty(b.remaining.toString());
                                                     setAdjustMinAlert(b.min_alert_qty !== null ? b.min_alert_qty.toString() : "");
                                                     setAdjustReason("Audit Correction");
                                                     setAdjustNotes("");
-                                                  }} title="Adjust Qty" style={{ padding: "4px 8px" }}>✏️</Btn>
+                                                  }} title="Adjust Qty" style={{ padding: "6px 8px" }}>
+                                                    <Edit3 size={14} />
+                                                  </Btn>
                                                   <Btn variant="danger" small onClick={() => remove(b.id)}>✕</Btn>
                                                 </div>
 
@@ -1053,7 +1126,7 @@ export default function StockScreen() {
                                   </td>
                                 </tr>
                               )}
-                            </>
+                            </Fragment>
                           );
                         })}
                       </tbody>
@@ -1070,7 +1143,7 @@ export default function StockScreen() {
                         {items.map((item) => {
                           const pct = item.qty > 0 ? (item.remaining / item.qty) * 100 : 0;
                           const isLow = item.min_alert_qty !== null ? item.remaining <= item.min_alert_qty : pct < 25;
-                          const color = pct > 50 ? COLORS.success : pct > 20 ? COLORS.accent : COLORS.coral;
+                          const color = pct > 50 ? COLORS.success : pct > 20 ? COLORS.accent : COLORS.danger;
                           
                           const origCost = item.price ? item.qty * item.price : 0;
                           const remCost = item.price ? item.remaining * item.price : 0;
@@ -1083,26 +1156,49 @@ export default function StockScreen() {
                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                             
                             if (diffDays < 0) {
-                              return <span className="badge" style={{ background: "#7f1d1d22", color: COLORS.coral }}>🔴 Expired ({expiryDate})</span>;
+                              return <span className="status-badge" style={{ background: "var(--color-accent-red-light)", color: "var(--color-accent-red)" }}><AlertCircle size={12} /> Expired ({expiryDate})</span>;
                             }
                             if (diffDays <= 3) {
-                              return <span className="badge" style={{ background: "#7c4a1022", color: COLORS.accent }}>🟡 Expiring soon ({diffDays}d)</span>;
+                              return <span className="status-badge" style={{ background: "var(--color-accent-amber-light)", color: "var(--color-accent-amber)" }}><Clock size={12} /> Expiring soon ({diffDays}d)</span>;
                             }
-                            return <span className="badge" style={{ background: "#14532d22", color: COLORS.success }}>🟢 Fresh ({expiryDate})</span>;
+                            return <span className="status-badge" style={{ background: "var(--color-accent-green-light)", color: "var(--color-accent-green)" }}><CheckCircle size={12} /> Fresh ({expiryDate})</span>;
                           };
                           
                           return (
                             <tr key={item.id} style={{ 
-                              background: isLow ? COLORS.coral + "08" : "transparent",
+                              background: isLow ? "var(--color-accent-red-light)" : "transparent",
                               transition: "background 0.2s"
                             }}>
-                              <td style={{ fontWeight: 500, borderLeft: isLow ? `3px solid ${COLORS.coral}` : "3px solid transparent", paddingLeft: 11 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <span style={{ fontSize: 18 }}>{getItemEmoji(item.name)}</span>
+                              <td style={{ fontWeight: 500, borderLeft: isLow ? `3px solid ${COLORS.danger}` : "3px solid transparent", paddingLeft: 11 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  {(() => {
+                                    const avatar = getInitialsAvatar(item.name);
+                                    return (
+                                      <div style={{
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius: "50%",
+                                        background: avatar.bg,
+                                        color: avatar.fg,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        flexShrink: 0
+                                      }}>
+                                        {avatar.text}
+                                      </div>
+                                    );
+                                  })()}
                                   <div>
                                     <span style={{ color: COLORS.accent, fontSize: 10, display: "block", fontWeight: 600, letterSpacing: "0.04em" }}>{item.item_code}</span>
-                                    <span>{item.name}</span>
-                                    {isLow && <span style={{ color: COLORS.coral, fontSize: 10, display: "block", marginTop: 2, fontWeight: 600, letterSpacing: "0.04em" }}>⚠️ LOW STOCK</span>}
+                                    <span style={{ fontSize: "14px" }}>{item.name}</span>
+                                    {isLow && (
+                                      <span style={{ color: COLORS.danger, fontSize: 10, display: "flex", alignItems: "center", gap: 3, marginTop: 2, fontWeight: 600, letterSpacing: "0.04em" }}>
+                                        <AlertCircle size={10} /> LOW STOCK
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </td>
@@ -1153,8 +1249,8 @@ export default function StockScreen() {
                                 ) : (
                                   <>
                                     <span style={{ color, fontWeight: 500 }}>{parseFloat(item.remaining).toFixed(2)}</span>
-                                    <div style={{ height: 2, background: COLORS.border, borderRadius: 1, marginTop: 4, width: 60 }}>
-                                      <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 1 }} />
+                                    <div style={{ height: 6, background: COLORS.border, borderRadius: 3, marginTop: 6, width: 80, overflow: "hidden" }}>
+                                      <div style={{ height: "100%", width: `${pct}%`, background: color }} />
                                     </div>
                                   </>
                                 )}
@@ -1173,18 +1269,22 @@ export default function StockScreen() {
                               <td style={{ color: COLORS.muted }}>{formatDate(item.date)}</td>
                               <td>
                                 <div style={{ display: "flex", gap: 4 }}>
-                                  <Btn variant="ghost" small onClick={() => setPrintModalItem(item)} title="Print Label" style={{ padding: "4px 8px", border: `1px solid ${COLORS.border}` }}>🏷️</Btn>
+                                  <Btn variant="ghost" small onClick={() => setPrintModalItem(item)} title="Print Label" style={{ padding: "6px 8px", border: `1px solid ${COLORS.border}` }}>
+                                    <Printer size={14} />
+                                  </Btn>
                                   <Btn variant="ghost" small onClick={() => {
                                     setAdjustModalItem(item);
                                     setAdjustQty(item.remaining.toString());
                                     setAdjustMinAlert(item.min_alert_qty !== null ? item.min_alert_qty.toString() : "");
                                     setAdjustReason("Audit Correction");
                                     setAdjustNotes("");
-                                  }} style={{ padding: "4px 8px" }}>✏️</Btn>
+                                  }} style={{ padding: "6px 8px" }}>
+                                    <Edit3 size={14} />
+                                  </Btn>
                                   <Btn variant="danger" small onClick={() => remove(item.id)}>✕</Btn>
                                 </div>
                               </td>
-                             </tr>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -1395,24 +1495,25 @@ export default function StockScreen() {
             )
           )}
 
-        </Card>
-      </div>
+         </Card>
 
       {/* Print Preview Modal */}
       {printModalItem && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0, 0, 0, 0.75)", display: "flex",
+          background: "rgba(15, 23, 42, 0.65)", display: "flex",
           alignItems: "center", justifyContent: "center", zIndex: 1000,
           backdropFilter: "blur(4px)"
         }}>
           <div style={{
             background: COLORS.surface, border: `1px solid ${COLORS.border}`,
             borderRadius: 12, padding: 24, width: 450, maxWidth: "90%",
-            boxShadow: `0 8px 32px rgba(0, 0, 0, 0.5)`
+            boxShadow: `0 8px 32px rgba(15, 23, 42, 0.15)`
           }}>
-            <h3 style={{ fontFamily: "'DM Serif Display'", fontSize: 20, color: COLORS.accent, marginBottom: 8 }}>🏷️ Label Print Preview</h3>
-            <p style={{ fontSize: 12, color: COLORS.muted, marginBottom: 20 }}>Verify layout specs for the 2.0" x 1.2" thermal printer label before dispatching print command.</p>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+              <Printer size={18} /> Label Print Preview
+            </h3>
+            <p style={{ fontSize: 13, color: COLORS.muted, marginBottom: 20 }}>Verify layout specs for the 2.0" x 1.2" thermal printer label before dispatching print command.</p>
             
             {/* Label design container */}
             <div style={{
@@ -1607,9 +1708,10 @@ export default function StockScreen() {
                   printWindow.document.close();
                   setPrintModalItem(null);
                 }} 
+                icon={<Printer size={16} />}
                 style={{ flex: 1 }}
               >
-                🖨️ Confirm Print
+                Confirm Print
               </Btn>
               <Btn variant="ghost" onClick={() => setPrintModalItem(null)} style={{ border: `1px solid ${COLORS.border}`, flex: 1 }}>
                 Cancel
@@ -1648,17 +1750,19 @@ export default function StockScreen() {
         return (
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-            background: "rgba(0, 0, 0, 0.75)", display: "flex",
+            background: "rgba(15, 23, 42, 0.65)", display: "flex",
             alignItems: "center", justifyContent: "center", zIndex: 1000,
             backdropFilter: "blur(4px)"
           }}>
             <div style={{
               background: COLORS.surface, border: `1px solid ${COLORS.border}`,
               borderRadius: 12, padding: 24, width: 450, maxWidth: "90%",
-              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.5)`
+              boxShadow: `0 8px 32px rgba(15, 23, 42, 0.15)`
             }}>
-              <h3 style={{ fontFamily: "'DM Serif Display'", fontSize: 20, color: COLORS.accent, marginBottom: 4 }}>✏️ Quick Stock Adjustment</h3>
-              <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 16 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <Edit3 size={18} /> Quick Stock Adjustment
+              </h3>
+              <p style={{ fontSize: 13, color: COLORS.muted, marginBottom: 16 }}>
                 Adjusting batch code <span style={{ color: COLORS.purple, fontWeight: "bold" }}>{adjustModalItem.item_code}</span> of <span style={{ color: COLORS.text, fontWeight: "bold" }}>{adjustModalItem.name}</span>.
               </p>
 
@@ -1750,6 +1854,7 @@ export default function StockScreen() {
                 <Btn 
                   onClick={handleSaveAdjustment} 
                   disabled={adjustQty.trim() === "" || isNaN(targetQty) || targetQty < 0}
+                  icon={<CheckCircle size={16} />}
                   style={{ flex: 1 }}
                 >
                   Apply & Log Adjustment
@@ -1770,26 +1875,32 @@ export default function StockScreen() {
             {/* Header / Global Action */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, borderBottom: `1px solid ${COLORS.border}55`, paddingBottom: 10 }}>
               <div>
-                <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>⚠️ Store Alerts</p>
-                <p style={{ fontSize: 9, color: COLORS.muted, marginTop: 2 }}>Auto-evaluated warnings</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                  <AlertOctagon size={16} style={{ color: COLORS.danger }} /> Store Alerts
+                </p>
+                <p style={{ fontSize: 10, color: COLORS.muted, marginTop: 2 }}>Auto-evaluated warnings</p>
               </div>
               {lowStockItems.length > 0 && (
                 <div style={{ display: "flex", gap: 4 }}>
-                  <Btn variant="ghost" small onClick={copyPOToClipboard} style={{ fontSize: 10, padding: "3px 6px", border: `1px solid ${COLORS.border}` }} title="Copy Purchase Order to Clipboard">
-                    📋 Copy PO
+                  <Btn variant="ghost" small onClick={copyPOToClipboard} icon={<ClipboardList size={12} />} style={{ fontSize: 11, padding: "4px 8px", border: `1px solid ${COLORS.border}` }} title="Copy Purchase Order to Clipboard">
+                    Copy PO
                   </Btn>
-                  <Btn variant="ghost" small onClick={generateWhatsAppPO} style={{ fontSize: 10, padding: "3px 6px", background: "#25D36622", border: "1px solid #25D36644", color: "#25D366" }} title="Send Purchase Order to WhatsApp">
-                    💬 PO
+                  <Btn variant="ghost" small onClick={generateWhatsAppPO} icon={<Send size={12} />} style={{ fontSize: 11, padding: "4px 8px", background: "#25D36622", border: "1px solid #25D36644", color: "#25D366" }} title="Send Purchase Order to WhatsApp">
+                    Send PO
                   </Btn>
                 </div>
               )}
             </div>
 
             {/* Section 1: Low Stock alerts */}
-            <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>📉 Low Stock Levels ({lowStockItems.length})</p>
+            <p style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+              <TrendingDown size={14} /> Low Stock Levels ({lowStockItems.length})
+            </p>
             {lowStockItems.length === 0 ? (
               <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6, marginBottom: 16 }}>
-                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 500 }}>✅ All levels healthy</p>
+                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <CheckCircle size={14} /> All levels healthy
+                </p>
               </div>
             ) : (
               <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
@@ -1800,27 +1911,45 @@ export default function StockScreen() {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      padding: 10,
+                      padding: "12px 14px",
                       background: COLORS.bg + "55",
                       border: `1px solid ${COLORS.border}44`,
+                      borderLeft: `3px solid ${COLORS.danger}`,
                       borderRadius: 6
                     }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1 }}>
-                        <span style={{ fontSize: 14 }}>{getItemEmoji(item.name)}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1 }}>
+                        {(() => {
+                          const avatar = getInitialsAvatar(item.name);
+                          return (
+                            <div style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: avatar.bg,
+                              color: avatar.fg,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              flexShrink: 0
+                            }}>
+                              {avatar.text}
+                            </div>
+                          );
+                        })()}
                         <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
-                          <span style={{ color: COLORS.accent, fontSize: 8, display: "block", fontWeight: 600 }}>{item.item_code}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
-                          <span style={{ fontSize: 10, color: COLORS.coral, display: "block", marginTop: 2 }}>
+                          <span style={{ color: COLORS.accent, fontSize: 9, display: "block", fontWeight: 600 }}>{item.item_code}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
+                          <span style={{ fontSize: 11, color: COLORS.danger, display: "block", marginTop: 2, fontWeight: 500 }}>
                             {parseFloat(item.remaining).toFixed(1)} / {item.qty} {item.unit} ({pct.toFixed(0)}%)
                           </span>
-                          <div style={{ height: 4, background: COLORS.border + "55", borderRadius: 2, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
-                            <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, pct))}%`, background: COLORS.coral }} />
+                          <div style={{ height: 6, background: COLORS.border + "55", borderRadius: 3, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
+                            <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, pct))}%`, background: COLORS.danger }} />
                           </div>
                         </div>
                       </div>
-                      <Btn variant="ghost" small onClick={() => handleReorderClick(item)} style={{ fontSize: 9, padding: "3px 6px", border: `1px solid ${COLORS.border}` }}>
-                        🛒
-                      </Btn>
+                      <Btn variant="ghost" small onClick={() => handleReorderClick(item)} icon={<ShoppingCart size={12} />} title="Reorder" style={{ padding: "6px 8px" }} />
                     </div>
                   );
                 })}
@@ -1828,10 +1957,14 @@ export default function StockScreen() {
             )}
 
             {/* Section 2: Expiry warnings */}
-            <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>🚨 Spoilage / Expiry Alerts ({expiringSoonItems.length})</p>
+            <p style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock size={14} /> Spoilage & Expiry Alerts ({expiringSoonItems.length})
+            </p>
             {expiringSoonItems.length === 0 ? (
               <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6 }}>
-                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 500 }}>✅ No near expiries</p>
+                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <CheckCircle size={14} /> No near expiries
+                </p>
               </div>
             ) : (
               <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1845,26 +1978,46 @@ export default function StockScreen() {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      padding: 10,
+                      padding: "12px 14px",
                       background: COLORS.bg + "55",
                       border: `1px solid ${COLORS.border}44`,
+                      borderLeft: `3px solid ${COLORS.warning}`,
                       borderRadius: 6
                     }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1 }}>
-                        <span style={{ fontSize: 14 }}>{getItemEmoji(item.name)}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1 }}>
+                        {(() => {
+                          const avatar = getInitialsAvatar(item.name);
+                          return (
+                            <div style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: avatar.bg,
+                              color: avatar.fg,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              flexShrink: 0
+                            }}>
+                              {avatar.text}
+                            </div>
+                          );
+                        })()}
                         <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
-                          <span style={{ color: COLORS.accent, fontSize: 8, display: "block", fontWeight: 600 }}>{item.item_code}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
-                          <span style={{ fontSize: 10, color: COLORS.coral, display: "block", marginTop: 2 }}>
+                          <span style={{ color: COLORS.accent, fontSize: 9, display: "block", fontWeight: 600 }}>{item.item_code}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
+                          <span style={{ fontSize: 11, color: COLORS.danger, display: "block", marginTop: 2, fontWeight: 500 }}>
                             {item.remaining} {item.unit} remaining
                           </span>
-                          <div style={{ height: 4, background: COLORS.border + "55", borderRadius: 2, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
-                            <div style={{ height: "100%", width: diffDays <= 0 ? "100%" : `${Math.max(10, 100 - (diffDays * 10))}%`, background: COLORS.coral }} />
+                          <div style={{ height: 6, background: COLORS.border + "55", borderRadius: 3, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
+                            <div style={{ height: "100%", width: diffDays <= 0 ? "100%" : `${Math.max(10, 100 - (diffDays * 10))}%`, background: COLORS.danger }} />
                           </div>
                         </div>
                       </div>
-                      <span className="badge" style={{ background: "#7f1d1d22", color: COLORS.coral, fontSize: 9 }}>
-                        {diffDays <= 0 ? "Today" : `${diffDays} days`}
+                      <span className="status-badge" style={{ background: "var(--color-accent-red-light)", color: "var(--color-accent-red)", fontSize: 10, padding: "2px 6px" }}>
+                        {diffDays <= 0 ? "Expired" : `${diffDays} days`}
                       </span>
                     </div>
                   );
@@ -1876,13 +2029,15 @@ export default function StockScreen() {
           {/* Add form */}
           <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <p style={{ fontSize: 12, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Add new stock</p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+              <PlusCircle size={16} style={{ color: COLORS.brand }} /> New Stock Entry
+            </p>
             <div style={{ display: "flex", gap: 6 }}>
-              <Btn variant="ghost" small onClick={() => setShowQuickImport(!showQuickImport)} style={{ fontSize: 11, padding: "3px 8px" }}>
-                {showQuickImport ? "✍️ Standard" : "✍️ Quick Import"}
+              <Btn variant="ghost" small onClick={() => setShowQuickImport(!showQuickImport)} icon={<ClipboardList size={12} />} style={{ fontSize: 11, padding: "4px 8px" }}>
+                {showQuickImport ? "Standard" : "Quick Import"}
               </Btn>
-              <Btn variant="ghost" small onClick={() => fileInputRef.current.click()} style={{ fontSize: 11, padding: "3px 8px" }} disabled={scanningBill}>
-                {scanningBill ? "⏳ Scanning…" : "📷 Scan Slip"}
+              <Btn variant="ghost" small onClick={() => fileInputRef.current.click()} icon={<Eye size={12} />} style={{ fontSize: 11, padding: "4px 8px" }} disabled={scanningBill}>
+                {scanningBill ? "Scanning…" : "Scan Slip"}
               </Btn>
             </div>
           </div>
@@ -1890,30 +2045,34 @@ export default function StockScreen() {
 
           {scannedPreview ? (
             <div>
-              <p style={{ fontSize: 12, color: COLORS.accent, fontWeight: 600, marginBottom: 12 }}>📋 Scanned Bill Review</p>
+              <p style={{ fontSize: 13, color: COLORS.accent, fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <ClipboardList size={14} /> Scanned Bill Review
+              </p>
               <Input label="Supplier / Vendor" value={scannedPreview.supplier} onChange={(e) => setScannedPreview(prev => ({ ...prev, supplier: e.target.value }))} />
               <Input label="Date received" type="date" value={scannedPreview.date} onChange={(e) => setScannedPreview(prev => ({ ...prev, date: e.target.value }))} />
               
-              <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 12 }}>Items Scanned</p>
+              <p style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600, marginBottom: 8, marginTop: 12 }}>Items Scanned</p>
               <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
                 {scannedPreview.items.map((it, idx) => (
                   <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 24px", gap: 6, marginBottom: 8, alignItems: "center" }}>
                     <input value={it.name} onChange={(e) => updateScannedItem(idx, "name", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Item" />
                     <input type="number" value={it.qty} onChange={(e) => updateScannedItem(idx, "qty", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Qty" />
                     <input type="number" step="0.01" value={it.price} onChange={(e) => updateScannedItem(idx, "price", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Price" />
-                    <button onClick={() => removeScannedItem(idx)} style={{ background: "transparent", border: "none", color: COLORS.coral, cursor: "pointer", fontSize: 14 }}>✕</button>
+                    <button onClick={() => removeScannedItem(idx)} style={{ background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 14 }}>✕</button>
                   </div>
                 ))}
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <Btn onClick={submitScannedItems} style={{ flex: 1 }}>Confirm & Log All</Btn>
+                <Btn onClick={submitScannedItems} icon={<CheckCircle size={16} />} style={{ flex: 1 }}>Confirm & Log All</Btn>
                 <Btn variant="danger" onClick={() => setScannedPreview(null)}>Cancel</Btn>
               </div>
             </div>
           ) : showQuickImport ? (
             <div>
-              <p style={{ fontSize: 12, color: COLORS.accent, fontWeight: 600, marginBottom: 4 }}>✍️ Quick Dictate / Text Import</p>
+              <p style={{ fontSize: 13, color: COLORS.accent, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <ClipboardList size={14} /> Quick Dictate / Text Import
+              </p>
               <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 12 }}>Type, paste WhatsApp text, or use voice dictation in Telugu and other local languages.</p>
               
               {(() => {
@@ -2091,17 +2250,28 @@ export default function StockScreen() {
                   ? (basePriceVal * (1 + gstVal / 100)) + (freightVal / quantityVal)
                   : basePriceVal;
                 return (
-                  <div style={{ fontSize: 11, background: COLORS.bg + "44", padding: 8, borderRadius: 4, marginBottom: 12, border: `1px solid ${COLORS.border}33`, color: COLORS.muted }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span>Base Total Value:</span>
-                      <span style={{ color: COLORS.text, fontWeight: 500 }}>₹{(quantityVal * basePriceVal).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <div style={{ 
+                    fontSize: 13, 
+                    background: "var(--color-accent-green-light)", 
+                    padding: "12px 14px", 
+                    borderRadius: 8, 
+                    marginBottom: 12, 
+                    border: `1px solid var(--color-accent-green)`, 
+                    color: COLORS.text,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: COLORS.muted }}>Base Total Value:</span>
+                      <span style={{ fontWeight: 600 }}>₹{(quantityVal * basePriceVal).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    {(gstVal > 0 || freightVal > 0) && (
-                      <div style={{ display: "flex", justifyContent: "space-between", color: COLORS.teal, fontWeight: 600, borderTop: `1px solid ${COLORS.border}33`, paddingTop: 4, marginTop: 4 }}>
-                        <span>Landed Cost (with Tax & Freight):</span>
-                        <span>₹{landedPrice.toFixed(2)} / {form.unit}</span>
-                      </div>
-                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid rgba(16, 185, 129, 0.2)`, paddingTop: 6, marginTop: 2 }}>
+                      <span style={{ color: COLORS.muted, fontWeight: 500 }}>Landed Cost (per unit):</span>
+                      <span style={{ color: "var(--color-accent-green)", fontWeight: 700 }}>
+                        ₹{landedPrice.toFixed(2)} / {form.unit}
+                      </span>
+                    </div>
                   </div>
                 );
               })()}
@@ -2110,7 +2280,7 @@ export default function StockScreen() {
                 <Input label="Min Alert Level" type="number" step="0.01" value={form.min_alert_qty} onChange={(e) => setForm((f) => ({ ...f, min_alert_qty: e.target.value }))} placeholder="e.g. 5.0" />
               </div>
               <Input label="Date received" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-              <Btn onClick={add} style={{ width: "100%", marginTop: 4 }}>Add to Store</Btn>
+              <Btn onClick={add} icon={<PlusCircle size={16} />} style={{ width: "100%", marginTop: 8, height: 40 }}>Add to Store</Btn>
             </div>
           )}
           {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 8, textAlign: "center" }}>{msg}</p>}
@@ -2119,5 +2289,6 @@ export default function StockScreen() {
           </div>
 
         </div>
+      </div>
   );
 }
