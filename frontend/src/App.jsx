@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import kapilaLogo from "./assets/kapila-logo.png";
 import { globalCss, COLORS } from "./styles/colors";
 import { AppProvider, useAppContext } from "./context/AppContext";
 import { 
@@ -151,21 +152,23 @@ function Inner() {
         }}>
           {/* Logo */}
           <div style={{
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "18px 20px", borderBottom: "1px solid var(--sidebar-border)",
+            display: "flex", alignItems: "center",
+            padding: "14px 16px", borderBottom: "1px solid var(--sidebar-border)",
             flexShrink: 0
           }}>
             <div style={{
-              width: 32, height: 32, borderRadius: 9, background: "var(--color-accent-primary)",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+              background: "#1E293B",
+              borderRadius: 10,
+              padding: "8px 14px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: "100%",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.18)"
             }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: "#1F2937", letterSpacing: "-0.01em" }}>Kapila IMS</div>
-              <div style={{ fontSize: 10, color: "var(--sidebar-category)", letterSpacing: "0.04em" }}>Inventory System</div>
+              <img
+                src={kapilaLogo}
+                alt="Kapila IMS"
+                style={{ height: 28, width: "auto", display: "block", objectFit: "contain" }}
+              />
             </div>
           </div>
 

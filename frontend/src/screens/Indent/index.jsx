@@ -420,7 +420,8 @@ export default function IndentScreen() {
           <title>Indent Slip - ${form.dept}</title>
           <style>
             body { font-family: sans-serif; padding: 20px; color: #333; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+            .logo-container { background: #1E293B; border-radius: 8px; padding: 8px 20px; display: inline-flex; align-items: center; justify-content: center; }
             .details { margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
             th { background: #f2f2f2; padding: 8px; text-align: left; border-bottom: 2px solid #ddd; }
@@ -429,8 +430,10 @@ export default function IndentScreen() {
         </head>
         <body>
           <div class="header">
-            <h2>KAPILA INVENTORY</h2>
-            <h3>NIGHTLY INDENT SLIP</h3>
+            <div class="logo-container">
+              <img src="/kapila-logo.png" alt="Kapila" style="height: 32px; display: block;" />
+            </div>
+            <h3 style="margin: 6px 0 0; font-size: 16px; letter-spacing: 0.05em; color: #475569; text-transform: uppercase;">Nightly Indent Slip</h3>
           </div>
           <div class="details">
             <p><strong>Department:</strong> ${form.dept}</p>

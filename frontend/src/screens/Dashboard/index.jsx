@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import kapilaLogo from "../../assets/kapila-logo.png";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
@@ -180,7 +181,29 @@ export default function Dashboard() {
   }, []);
 
   if (loading && !summaryData) {
-    return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: THEME.bg, color: THEME.muted }}>Loading dashboard...</div>;
+    return (
+      <div style={{
+        display: "flex", flexDirection: "column",
+        justifyContent: "center", alignItems: "center",
+        height: "100vh", gap: 20,
+        backgroundColor: THEME.bg
+      }}>
+        <div style={{
+          background: "#1E293B",
+          borderRadius: 16,
+          padding: "18px 36px",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
+          animation: "logoFadeIn 0.5s ease-out"
+        }}>
+          <img src={kapilaLogo} alt="Kapila" style={{ height: 40, width: "auto", display: "block" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: THEME.muted, fontSize: 13 }}>
+          <span className="pulse" style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: THEME.success }} />
+          Loading dashboard…
+        </div>
+        <style>{`@keyframes logoFadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }`}</style>
+      </div>
+    );
   }
   if (error && !summaryData) {
     return <div style={{ padding: 40, backgroundColor: THEME.bg }}><p style={{ color: THEME.danger }}>{error}</p></div>;
@@ -251,7 +274,17 @@ export default function Dashboard() {
     <div style={{ fontFamily: "'Inter', system-ui, sans-serif", backgroundColor: THEME.bg, minHeight: "100vh", paddingBottom: 40 }}>
       {/* SECTION 1: TOP HEADER BAR */}
       <div style={{ position: "sticky", top: 0, zIndex: 10, backgroundColor: THEME.card, borderBottom: `1px solid ${THEME.border}`, padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* Logo pill */}
+          <div style={{
+            background: "#1E293B",
+            borderRadius: 8,
+            padding: "5px 14px",
+            display: "flex", alignItems: "center",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.12)"
+          }}>
+            <img src={kapilaLogo} alt="Kapila" style={{ height: 22, width: "auto", display: "block" }} />
+          </div>
           <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: THEME.text }}>Hotel Kapila</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 8, color: THEME.muted, fontSize: "14px" }}>
             <Clock size={16} />
