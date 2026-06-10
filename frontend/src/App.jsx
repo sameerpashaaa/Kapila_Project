@@ -135,7 +135,7 @@ function Inner() {
         {/* ═══ SIDEBAR ═══ */}
         <aside style={{
           width: SIDEBAR_WIDTH,
-          background: "var(--sidebar-bg)",
+          background: "var(--color-bg-sidebar)",
           borderRight: "1px solid var(--sidebar-border)",
           display: "flex",
           flexDirection: "column",
@@ -173,8 +173,8 @@ function Inner() {
             {NAV_CATEGORIES.map((cat) => (
               <div key={cat.title} style={{ marginBottom: 4 }}>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "var(--sidebar-category)",
-                  textTransform: "uppercase", letterSpacing: "0.1em",
+                  fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)",
+                  textTransform: "uppercase", letterSpacing: "0.08em",
                   padding: "8px 12px 4px", userSelect: "none"
                 }}>
                   {cat.title}
@@ -203,7 +203,7 @@ function Inner() {
                         cursor: "pointer",
                         position: "relative"
                       }}
-                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--sidebar-hover-bg)"; e.currentTarget.style.color = "#e2e8f0"; }}
+                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#e2e8f0"; }}
                       onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--sidebar-text)"; } }}
                     >
                       <span style={{ 
@@ -244,9 +244,8 @@ function Inner() {
             flexShrink: 0
           }}>
             <div style={{
-              width: 7, height: 7, borderRadius: "50%",
-              background: COLORS.brand,
-              boxShadow: `0 0 6px ${COLORS.brand}`
+              width: 6, height: 6, borderRadius: "50%",
+              background: "#10B981"
             }} className="pulse" />
             <span style={{ fontSize: 11, color: "var(--sidebar-category)", fontWeight: 500 }}>PostgreSQL · Live</span>
           </div>
