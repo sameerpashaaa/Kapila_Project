@@ -4,7 +4,7 @@ import { AppProvider, useAppContext } from "./context/AppContext";
 import { 
   LayoutDashboard, Package, Factory, Building2, Receipt, Inbox, Bell, 
   Scale, ArrowLeftRight, CalendarRange, ClipboardList, Send, ChefHat, 
-  ArchiveRestore, Trash2, Database, ChevronRight
+  ArchiveRestore, Trash2, Database, ChevronRight, Search
 } from "lucide-react";
 
 import Dashboard      from "./screens/Dashboard";
@@ -137,6 +137,7 @@ function Inner() {
           width: SIDEBAR_WIDTH,
           background: "var(--color-bg-sidebar)",
           borderRight: "1px solid var(--sidebar-border)",
+          boxShadow: "var(--shadow-sidebar)",
           display: "flex",
           flexDirection: "column",
           position: isMobile ? "fixed" : "relative",
@@ -146,7 +147,7 @@ function Inner() {
           zIndex: 100,
           flexShrink: 0,
           overflowY: "auto",
-          scrollbarWidth: "none"
+          scrollbarWidth: "thin"
         }}>
           {/* Logo */}
           <div style={{
@@ -155,7 +156,7 @@ function Inner() {
             flexShrink: 0
           }}>
             <div style={{
-              width: 32, height: 32, borderRadius: 9, background: COLORS.brand,
+              width: 32, height: 32, borderRadius: 9, background: "#4F46E5",
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
             }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -163,8 +164,19 @@ function Inner() {
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: "#f1f5f9", letterSpacing: "-0.01em" }}>Kapila IMS</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#1F2937", letterSpacing: "-0.01em" }}>Kapila IMS</div>
               <div style={{ fontSize: 10, color: "var(--sidebar-category)", letterSpacing: "0.04em" }}>Inventory System</div>
+            </div>
+          </div>
+
+          {/* User Profile */}
+          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid var(--sidebar-border)" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#4F46E5" }}>
+              K
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1F2937" }}>Kapila Admin</div>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>Administrator</div>
             </div>
           </div>
 
@@ -173,7 +185,7 @@ function Inner() {
             {NAV_CATEGORIES.map((cat) => (
               <div key={cat.title} style={{ marginBottom: 4 }}>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)",
+                  fontSize: 10, fontWeight: 700, color: "var(--sidebar-category)",
                   textTransform: "uppercase", letterSpacing: "0.08em",
                   padding: "8px 12px 4px", userSelect: "none"
                 }}>
@@ -193,8 +205,8 @@ function Inner() {
                         width: "100%",
                         padding: "9px 12px",
                         borderRadius: 8,
-                        background: isActive ? COLORS.brand : "transparent",
-                        color: isActive ? "#ffffff" : "var(--sidebar-text)",
+                        background: isActive ? "var(--sidebar-active-bg)" : "transparent",
+                        color: isActive ? "var(--sidebar-active-text)" : "var(--sidebar-text)",
                         border: "none",
                         transition: "all 0.15s",
                         textAlign: "left",
@@ -203,11 +215,11 @@ function Inner() {
                         cursor: "pointer",
                         position: "relative"
                       }}
-                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#ffffff"; }}
+                      onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "var(--sidebar-hover-bg)"; e.currentTarget.style.color = "var(--sidebar-text-hover)"; } }}
                       onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--sidebar-text)"; } }}
                     >
                       <span style={{ 
-                        color: isActive ? "rgba(255,255,255,0.9)" : "#94a3b8",
+                        color: isActive ? "var(--sidebar-active-text)" : "var(--sidebar-text)",
                         display: "flex", flexShrink: 0
                       }}>
                         {n.icon}
@@ -278,12 +290,21 @@ function Inner() {
                 {activeNavItem?.label || "Dashboard"}
               </span>
             </div>
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", background: "#F3F4F6", borderRadius: 20, padding: "6px 12px", gap: 6 }}>
+                <Search size={14} color="#9CA3AF" />
+                <input placeholder="Search..." style={{ border: "none", background: "transparent", fontSize: 13, color: "#1F2937", outline: "none", width: 160 }} />
+              </div>
+              <div style={{ position: "relative", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", background: "#F3F4F6" }}>
+                <Bell size={16} color="#6B7280" />
+                <div style={{ position: "absolute", top: 6, right: 6, width: 6, height: 6, borderRadius: "50%", background: COLORS.danger }}></div>
+              </div>
               <div style={{
                 width: 32, height: 32, borderRadius: "50%",
                 background: COLORS.brand + "20",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 13, fontWeight: 700, color: COLORS.brand
+                fontSize: 13, fontWeight: 700, color: COLORS.brand,
+                cursor: "pointer"
               }}>
                 K
               </div>

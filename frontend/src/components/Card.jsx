@@ -11,10 +11,10 @@ export default function Card({ children, style = {}, onClick, variant = "default
         return {
           cursor: "pointer",
           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          borderColor: isHovered ? "var(--color-accent-green)" : COLORS.border,
+          borderColor: isHovered ? "var(--color-accent-primary)" : COLORS.border,
           boxShadow: isHovered 
-            ? "0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)" 
-            : "0 1px 3px 0 rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.04)",
+            ? "0 4px 6px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.06)" 
+            : "0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
         };
       case "highlighted":
         return {
@@ -34,9 +34,9 @@ export default function Card({ children, style = {}, onClick, variant = "default
       style={{ 
         background: COLORS.surface, 
         border: `1px solid ${COLORS.border}`, 
-        borderRadius: 12, 
+        borderRadius: 14, 
         padding: 20, 
-        boxShadow: "0 1px 3px 0 rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.04)",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
         ...getVariantStyles(),
         ...style 
       }}

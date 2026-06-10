@@ -16,9 +16,9 @@ export default function SearchBar({ onSearch, placeholder = "Search…" }) {
         value={q}
         onChange={(e) => { setQ(e.target.value); if (!e.target.value) onSearch(""); }}
         placeholder={placeholder}
-        style={{ flex: 1, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "7px 12px", fontSize: 13, color: COLORS.text }}
+        style={{ flex: 1, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: "7px 16px", fontSize: 13, color: COLORS.text }}
       />
-      <Btn type="submit" variant="primary" small>Search</Btn>
+      <Btn type="submit" variant="primary" small style={{ borderRadius: 20, padding: "7px 16px" }}>Search</Btn>
     </form>
   );
 }

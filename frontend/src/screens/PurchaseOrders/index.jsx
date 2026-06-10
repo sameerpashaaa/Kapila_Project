@@ -229,7 +229,7 @@ export default function PurchaseOrdersScreen() {
               <tbody>
                 {(detail.items || []).map((it) => (
                   <tr key={it.id}>
-                    <td style={{ fontFamily: "monospace", color: COLORS.teal, fontSize: 12 }}>{it.item_code}</td>
+                    <td style={{ fontFamily: "monospace", color: COLORS.brand, fontSize: 12 }}>{it.item_code}</td>
                     <td style={{ fontWeight: 500 }}>{it.name}</td>
                     <td>{it.qty}</td>
                     <td style={{ color: COLORS.muted }}>{it.unit}</td>
@@ -348,7 +348,7 @@ export default function PurchaseOrdersScreen() {
                         value={it.item_code}
                         onChange={(e) => updateLine(idx, "item_code", e.target.value)}
                         placeholder="KPL-###"
-                        style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.teal, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 90, fontFamily: "monospace" }}
+                        style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.brand, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 90, fontFamily: "monospace" }}
                       />
                     </td>
                     <td style={{ padding: "6px 10px" }}>
@@ -523,7 +523,7 @@ export default function PurchaseOrdersScreen() {
                         style={{ cursor: "pointer" }}
                       >
                         <td>
-                          <span style={{ fontFamily: "monospace", color: COLORS.teal, fontWeight: 700, fontSize: 13 }}>
+                          <span style={{ fontFamily: "monospace", color: COLORS.brand, fontWeight: 700, fontSize: 13 }}>
                             {po.po_number}
                           </span>
                         </td>

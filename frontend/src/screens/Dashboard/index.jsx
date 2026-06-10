@@ -210,8 +210,8 @@ export default function Dashboard() {
   const safeTotalStock = kpis.total_stock || 0;
   const healthyCount = safeTotalStock - (low_stock_items || []).length;
   const pieData = [
-    { name: "Healthy", value: healthyCount > 0 ? healthyCount : 1, color: THEME.success }, // default to 1 so pie renders even if empty realistically
-    { name: "Low Stock", value: (low_stock_items || []).length, color: THEME.danger }
+    { name: "Healthy", value: healthyCount > 0 ? healthyCount : 1, color: THEME.chart1 }, // default to 1 so pie renders even if empty realistically
+    { name: "Low Stock", value: (low_stock_items || []).length, color: THEME.warning }
   ];
   if (safeTotalStock === 0) pieData[0].value = 0; // if actually 0
   const healthyPct = safeTotalStock > 0 ? Math.round((healthyCount / safeTotalStock) * 100) : 100;
@@ -285,29 +285,42 @@ export default function Dashboard() {
         
         {/* SECTION 2: KPI SUMMARY ROW */}
         <div className="dash-grid-auto-fit" style={{ display: "grid", gap: "20px" }}>
-          {kpiCards.map((kpi, i) => (
-            <Card key={i} style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px" }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: kpi.color + "18",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: kpi.color, flexShrink: 0
-              }}>
-                {kpi.icon}
-              </div>
-              <div>
-                <p style={{ fontSize: 10, color: THEME.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
-                  {kpi.label}
-                </p>
-                <p style={{ fontSize: 18, fontWeight: 700, color: kpi.color, lineHeight: 1.2, fontVariantNumeric: "tabular-nums", margin: "2px 0" }}>
-                  <AnimatedNumber value={kpi.value} formatter={kpi.formatter} />
-                </p>
-                <p style={{ fontSize: 10, color: THEME.muted, margin: 0 }}>
-                  {kpi.delta}
-                </p>
-              </div>
-            </Card>
-          ))}
+          {kpiCards.map((kpi, i) => {
+            const isFeatured = i === 0;
+            return (
+              <Card 
+                key={i} 
+                style={{ 
+                  display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px",
+                  ...(isFeatured ? {
+                    background: `linear-gradient(135deg, ${THEME.brand} 0%, #4338CA 100%)`,
+                    color: "#fff",
+                    border: "none",
+                  } : {})
+                }}
+              >
+                <div style={{
+                  width: 42, height: 42, borderRadius: 12,
+                  background: isFeatured ? "rgba(255,255,255,0.2)" : kpi.color + "18",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: isFeatured ? "#fff" : kpi.color, flexShrink: 0
+                }}>
+                  {kpi.icon}
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: isFeatured ? "rgba(255,255,255,0.8)" : THEME.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
+                    {kpi.label}
+                  </p>
+                  <p style={{ fontSize: 22, fontWeight: 700, color: isFeatured ? "#fff" : kpi.color, lineHeight: 1.2, fontVariantNumeric: "tabular-nums", margin: "4px 0" }}>
+                    <AnimatedNumber value={kpi.value} formatter={kpi.formatter} />
+                  </p>
+                  <p style={{ fontSize: 11, color: isFeatured ? "rgba(255,255,255,0.7)" : THEME.muted, margin: 0 }}>
+                    {kpi.delta}
+                  </p>
+                </div>
+              </Card>
+            );
+          })}
         </div>
 
         {/* SECTION 3: ANALYTICS ROW */}
@@ -321,8 +334,8 @@ export default function Dashboard() {
                   <AreaChart data={weekly_waste} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorWaste" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={THEME.success} stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor={THEME.success} stopOpacity={0}/>
+                        <stop offset="5%" stopColor={THEME.brand} stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor={THEME.brand} stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={THEME.border} />
@@ -345,7 +358,7 @@ export default function Dashboard() {
                       labelFormatter={(label) => new Date(label).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
                     />
                     <ReferenceLine y={2} stroke={THEME.danger} strokeDasharray="3 3" label={{ position: 'insideTopLeft', value: 'Target threshold 2%', fill: THEME.danger, fontSize: 10 }} />
-                    <Area type="monotone" dataKey="waste_rate_pct" stroke={THEME.success} strokeWidth={3} fillOpacity={1} fill="url(#colorWaste)" />
+                    <Area type="monotone" dataKey="waste_rate_pct" stroke={THEME.brand} strokeWidth={3} fillOpacity={1} fill="url(#colorWaste)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
@@ -376,9 +389,9 @@ export default function Dashboard() {
                     <Bar dataKey="total_plates" radius={[0, 4, 4, 0]} barSize={16}>
                       {dept_stats.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={
-                          index % 4 === 0 ? THEME.primary :
-                          index % 4 === 1 ? THEME.success :
-                          index % 4 === 2 ? THEME.warning : THEME.neutral
+                          index % 4 === 0 ? THEME.chart1 :
+                          index % 4 === 1 ? THEME.chart2 :
+                          index % 4 === 2 ? THEME.chart3 : THEME.chart4
                         } />
                       ))}
                     </Bar>

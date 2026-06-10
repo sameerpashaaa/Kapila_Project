@@ -1,25 +1,40 @@
 export const COLORS = {
-  brand:     "#10b981", // Emerald green — primary actions, active nav
-  brandDark: "#059669", // Darker emerald for hover states
-  brandLight:"#ecfdf5", // Very light mint — hover backgrounds
-  success:   "#10b981", // Positive states (same as brand)
-  warning:   "#f59e0b", // Watch/caution states
-  danger:    "#f43f5e", // Errors, critical alerts (rose)
-  text:      "#0f172a", // Body text (slate-950)
-  muted:     "#64748b", // Labels, subtitles (slate-500)
-  bg:        "var(--color-bg-page)", // Page background (slate-100)
-  surface:   "var(--color-bg-card)", // Cards, panels
-  border:    "var(--color-border)", // Borders, dividers
-
-  // Legacy aliases to prevent breaking other screens
-  accent:    "#10b981",
-  accentDim: "#059669",
-  coral:     "#f43f5e",
-  teal:      "#10b981",
-  purple:    "#8b5cf6",
-  primary:   "#8b5cf6",
-  neutral:   "#64748b",
-  card:      "var(--color-bg-card)",
+  // Primary — Indigo (replaces emerald green)
+  brand:      "#4F46E5",   // Indigo — primary actions, active nav
+  brandDark:  "#4338CA",   // Darker indigo for hover states
+  brandLight: "#EEF2FF",   // Very light indigo — hover backgrounds, focus rings
+  
+  // Semantic states
+  success:    "#10b981",   // Emerald — positive states (keep)
+  warning:    "#f59e0b",   // Amber — caution states (keep)
+  danger:     "#ef4444",   // Red — errors, critical
+  info:       "#3b82f6",   // Blue — informational states
+  
+  // Text
+  text:       "#1e293b",   // Slate-800
+  muted:      "#64748b",   // Slate-500
+  
+  // Surfaces
+  bg:         "var(--color-bg-page)",
+  surface:    "var(--color-bg-card)",
+  border:     "var(--color-border)",
+  
+  // Chart palette
+  chart1:     "#4F46E5",   // Indigo
+  chart2:     "#8B5CF6",   // Violet
+  chart3:     "#A78BFA",   // Light violet
+  chart4:     "#C4B5FD",   // Lavender
+  chart5:     "#10b981",   // Emerald accent
+  
+  // Legacy aliases
+  accent:     "#4F46E5",
+  accentDim:  "#4338CA",
+  coral:      "#ef4444",
+  teal:       "#10b981",
+  purple:     "#8b5cf6",
+  primary:    "#4F46E5",
+  neutral:    "#64748b",
+  card:       "var(--color-bg-card)",
 };
 
 export const DEPARTMENTS = [
@@ -45,36 +60,41 @@ export const globalCss = `
     --gap-md: 16px;
     --gap-lg: 24px;
     
-    /* --- Sidebar --- */
-    --sidebar-bg: #0f172a;
-    --sidebar-border: #1e293b;
-    --sidebar-text: #94a3b8;
-    --sidebar-active-bg: #10b981;
-    --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-    --sidebar-category: #64748b;
+    /* --- Sidebar (LIGHT theme) --- */
+    --sidebar-bg:         #FFFFFF;
+    --sidebar-border:     #E5E7EB;
+    --sidebar-text:       #6B7280;
+    --sidebar-text-hover: #1F2937;
+    --sidebar-active-bg:  #4F46E5;
+    --sidebar-active-text:#FFFFFF;
+    --sidebar-hover-bg:   #F3F4F6;
+    --sidebar-category:   #9CA3AF;
 
     /* --- Kapila IMS Stock Master Redesign Tokens --- */
-    --color-bg-page:        #f1f5f9;
-    --color-bg-card:        #ffffff;
-    --color-bg-sidebar:     #0f172a;
-    --color-accent-green:   #10b981;
-    --color-accent-green-light: #ecfdf5;
-    --color-accent-amber:   #f59e0b;
-    --color-accent-amber-light: #fef3c7;
-    --color-accent-red:     #f43f5e;
-    --color-accent-red-light: #fff1f2;
-    --color-accent-blue:    #3b82f6;
-    --color-accent-blue-light: #eff6ff;
-    --color-text-primary:   #0f172a;
+    --color-bg-page:        #F5F7FA;
+    --color-bg-card:        #FFFFFF;
+    --color-bg-sidebar:     #FFFFFF;
+    --color-accent-primary: #4F46E5;
+    --color-accent-primary-light: #EEF2FF;
+    --color-accent-green:   #10B981;
+    --color-accent-green-light: #ECFDF5;
+    --color-accent-amber:   #F59E0B;
+    --color-accent-amber-light: #FEF3C7;
+    --color-accent-red:     #EF4444;
+    --color-accent-red-light: #FEF2F2;
+    --color-accent-blue:    #3B82F6;
+    --color-accent-blue-light: #EFF6FF;
+    --color-text-primary:   #1E293B;
     --color-text-secondary: #475569;
-    --color-text-muted:     #64748b;
-    --color-border:         #e2e8f0;
-    --color-border-strong:  #cbd5e1;
-    --radius-sm:            6px;
-    --radius-md:            10px;
-    --radius-lg:            14px;
-    --shadow-card:          0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-    --shadow-card-hover:    0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    --color-text-muted:     #64748B;
+    --color-border:         #E5E7EB;
+    --color-border-strong:  #D1D5DB;
+    --radius-sm:            8px;
+    --radius-md:            12px;
+    --radius-lg:            16px;
+    --shadow-card:          0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-card-hover:    0 4px 6px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.06);
+    --shadow-sidebar:       1px 0 3px rgba(0,0,0,0.04);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -110,8 +130,8 @@ export const globalCss = `
     transition: border-color 0.2s, box-shadow 0.2s;
   }
   input:focus, select:focus, textarea:focus {
-    border-color: var(--color-accent-green);
-    box-shadow: 0 0 0 3px var(--color-accent-green-light);
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 3px var(--color-accent-primary-light);
   }
   select option { background: #ffffff; color: var(--color-text-primary); }
   button { cursor: pointer; font-family: 'Inter', sans-serif; font-size: var(--text-data); font-weight: 500; border: none; border-radius: 8px; transition: all 0.15s; }
@@ -140,7 +160,7 @@ export const globalCss = `
   }
   tr:last-child td { border-bottom: none; }
   tr:nth-child(even) td { background: #f8fafc; }
-  tr:hover td { background: var(--color-accent-green-light); }
+  tr:hover td { background: var(--color-accent-primary-light); }
   
   /* --- Row Actions --- */
   .row-actions { transition: opacity 0.15s; opacity: 0.7; }
@@ -191,9 +211,9 @@ export const globalCss = `
     border-color: #cbd5e1;
   }
   .chip.active {
-    background: var(--color-accent-green-light);
-    color: var(--color-accent-green);
-    border-color: var(--color-accent-green);
+    background: var(--color-accent-primary-light);
+    color: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
   }
 
   .stock-table th, .stock-table td { padding: 12px 14px; }

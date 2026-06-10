@@ -138,8 +138,8 @@ const PriceTrendChart = ({ points }) => {
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} style={{ overflow: "visible" }}>
         <defs>
           <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COLORS.teal} stopOpacity="0.3"/>
-            <stop offset="100%" stopColor={COLORS.teal} stopOpacity="0.0"/>
+            <stop offset="0%" stopColor={COLORS.brand} stopOpacity="0.3"/>
+            <stop offset="100%" stopColor={COLORS.brand} stopOpacity="0.0"/>
           </linearGradient>
         </defs>
 
@@ -155,14 +155,14 @@ const PriceTrendChart = ({ points }) => {
         })}
 
         <path d={areaD} fill="url(#chartGrad)" />
-        <path d={pathD} fill="none" stroke={COLORS.teal} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={pathD} fill="none" stroke={COLORS.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
         {points.map((p, idx) => {
           const x = getX(idx);
           const y = getY(parseFloat(p.price));
           return (
             <g key={idx} style={{ cursor: "pointer" }}>
-              <circle cx={x} cy={y} r="4" fill={COLORS.bg} stroke={COLORS.teal} strokeWidth="2" />
+              <circle cx={x} cy={y} r="4" fill={COLORS.bg} stroke={COLORS.brand} strokeWidth="2" />
               <title>{`${p.date}\n₹${parseFloat(p.price).toFixed(2)}/unit\nSupplier: ${p.supplier || '—'}`}</title>
             </g>
           );
