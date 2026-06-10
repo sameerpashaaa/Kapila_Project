@@ -11,6 +11,7 @@ import { COLORS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
+import { useLocalSpeech } from "../../hooks/useLocalSpeech";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const LIMIT = 20;
@@ -20,8 +21,10 @@ export default function IndentScreen() {
   const [deptsList, setDeptsList] = useState([]);
   const [deptItemsMap, setDeptItemsMap] = useState({});
   const [deptLeftovers, setDeptLeftovers] = useState([]);
-  const [isListening, setIsListening] = useState(false);
   const [availableStock, setAvailableStock] = useState({});
+
+  // Local speech-to-text (Whisper Tiny — no Google, no internet)
+  const { listening, statusMsg: speechStatus, startRecording, stopRecording } = useLocalSpeech("en-IN");
   
   const [form, setForm] = useState({ dept: "", date: today(), items: [{ name: "", qty: "", unit: "kg", item_code: "" }] });
   const [msg, setMsg]   = useState("");
@@ -302,41 +305,23 @@ export default function IndentScreen() {
   };
 
   const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser. Please use Chrome.");
-      return;
+    if (listening) {
+      stopRecording((status) => {
+        setMsg(status);
+        setTimeout(() => setMsg(""), 3000);
+      });
+    } else {
+      startRecording(
+        (text) => {
+          parseVoiceInput(text);
+          setMsg(`Heard: "${text}"`);
+          setTimeout(() => setMsg(""), 3500);
+        },
+        (status) => {
+          setMsg(status);
+        }
+      );
     }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = "en-IN";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setMsg("Listening... say items and quantities (e.g. 'Butter 5, Basmati Rice 10')");
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-      setMsg("Voice error. Try again.");
-      setTimeout(() => setMsg(""), 2000);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setMsg(`Heard: "${transcript}"`);
-      setTimeout(() => setMsg(""), 3500);
-      parseVoiceInput(transcript);
-    };
-
-    recognition.start();
   };
 
   const parseVoiceInput = (text) => {
@@ -673,9 +658,9 @@ export default function IndentScreen() {
               onClick={startListening} 
               style={{
                 flex: "1 1 45%",
-                background: isListening ? COLORS.coral : "transparent",
-                color: isListening ? "#fff" : COLORS.text,
-                border: `1px solid ${isListening ? COLORS.coral : COLORS.border}`,
+                background: listening ? COLORS.coral : "transparent",
+                color: listening ? "#fff" : COLORS.text,
+                border: `1px solid ${listening ? COLORS.coral : COLORS.border}`,
                 borderRadius: 6,
                 padding: "8px 12px",
                 fontSize: 12,
@@ -690,11 +675,11 @@ export default function IndentScreen() {
             >
               <span style={{
                 width: 8, height: 8, borderRadius: "50%",
-                background: isListening ? "#fff" : COLORS.coral,
+                background: listening ? "#fff" : COLORS.coral,
                 display: "inline-block",
-                animation: isListening ? "pulse 1.2s infinite ease-in-out" : "none"
+                animation: listening ? "pulse 1.2s infinite ease-in-out" : "none"
               }}/>
-              {isListening ? "Listening..." : "🎙️ Voice Input"}
+              {listening ? "Recording... (tap to stop)" : "🎙️ Voice Input"}
             </button>
 
             <button 

@@ -1,6 +1,7 @@
 const db = require("../db");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
+const { ocrImage, structureWithOllama } = require("../services/localAI");
 
 // ── Multer setup: accept PDF and images into memory ────────────────────────
 const storage = multer.memoryStorage();
@@ -14,67 +15,7 @@ const upload = multer({
   },
 });
 
-// ── Anthropic helper ───────────────────────────────────────────────────────
-async function callClaudeVision(base64Image, mimeType, prompt) {
-  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes("sk-ant-...")) {
-    throw new Error("Anthropic API key is not configured in backend .env");
-  }
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2500,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: mimeType, data: base64Image } },
-          { type: "text", text: prompt },
-        ],
-      }],
-    }),
-  });
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic API error ${response.status}: ${err.slice(0, 200)}`);
-  }
-  const result = await response.json();
-  const raw = result.content[0].text.trim().replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-  return JSON.parse(raw);
-}
-
-async function callClaudeText(textContent, prompt) {
-  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.includes("sk-ant-...")) {
-    throw new Error("Anthropic API key is not configured in backend .env");
-  }
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2500,
-      messages: [{
-        role: "user",
-        content: [{ type: "text", text: `${prompt}\n\n--- DOCUMENT TEXT ---\n${textContent}` }],
-      }],
-    }),
-  });
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic API error ${response.status}: ${err.slice(0, 200)}`);
-  }
-  const result = await response.json();
-  const raw = result.content[0].text.trim().replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-  return JSON.parse(raw);
-}
+const DELIVERY_PROMPT_TASK = "delivery";
 
 // ── POST /api/approved-delivery/scan ─────────────────────────────────────
 // Accepts: multipart/form-data  { file: <PDF or image>, supplier_id: <number> }
@@ -95,61 +36,47 @@ async function scan(req, res, next) {
       return res.status(400).json({ success: false, error: "Supplier not found." });
     }
 
-    const DELIVERY_PROMPT = `You are an expert OCR parser for hotel kitchen inventory systems.
-The user has uploaded a supplier delivery challan, approved indent, or goods delivery document.
-
-Extract every line item from this document. For each item determine:
-- name: (string) The item/product name. Translate any regional language names to standard English (e.g. "Aloo" → "Potato", "Tamatar" → "Tomato", "Biyyam" → "Rice").
-- qty: (number) The quantity delivered/supplied.
-- unit: (string) Must be exactly one of: kg, g, L, ml, pcs, dozen, box, plates, portions. Default to "kg" if unclear.
-- unit_price: (number) Price per unit if visible, otherwise 0.
-
-Also extract:
-- date: (string) Delivery date in YYYY-MM-DD format. Use today's date if not found.
-- invoice_no: (string or null) Invoice / challan / bill number if visible.
-
-Return ONLY a valid JSON object — no markdown, no explanations:
-{
-  "date": "YYYY-MM-DD",
-  "invoice_no": "string or null",
-  "items": [
-    { "name": "string", "qty": number, "unit": "string", "unit_price": number }
-  ]
-}`;
-
-    let extracted;
+    let rawText;
 
     if (req.file.mimetype === "application/pdf") {
-      // PDF: extract text then send to Claude text API
+      // PDF: extract embedded text via pdf-parse (no network needed)
       const pdfData = await pdfParse(req.file.buffer);
-      const textContent = pdfData.text;
-      if (!textContent || textContent.trim().length < 10) {
+      rawText = pdfData.text;
+      if (!rawText || rawText.trim().length < 10) {
         return res.status(422).json({
           success: false,
           error: "PDF appears to be image-based (scanned). Please upload a photo/image of the document instead.",
         });
       }
-      extracted = await callClaudeText(textContent, DELIVERY_PROMPT);
     } else {
-      // Image: send as base64 to Claude Vision
+      // Image: run Tesseract OCR locally
       const base64 = req.file.buffer.toString("base64");
-      extracted = await callClaudeVision(base64, req.file.mimetype, DELIVERY_PROMPT);
+      rawText = await ocrImage(base64, req.file.mimetype);
+      if (!rawText || rawText.trim().length < 5) {
+        return res.status(422).json({
+          success: false,
+          error: "Could not extract text from image. Please use a clearer photo in good lighting.",
+        });
+      }
     }
+
+    // Structure the extracted text with local Ollama model
+    const extracted = await structureWithOllama(rawText, DELIVERY_PROMPT_TASK);
 
     if (!extracted.items || !Array.isArray(extracted.items)) {
       return res.status(422).json({ success: false, error: "AI could not extract items from this document. Please try a clearer image." });
     }
 
     // Match item names against existing stock to get item_codes
-    const names = extracted.items.map(it => (it.name || "").trim().toLowerCase()).filter(Boolean);
+    const names = extracted.items.map((it) => (it.name || "").trim().toLowerCase()).filter(Boolean);
     const stockMatches = names.length
       ? await db("stock").select("name", "item_code", "unit").whereIn(db.raw("LOWER(name)"), names)
       : [];
 
     const nameMap = {};
-    stockMatches.forEach(m => { nameMap[m.name.toLowerCase()] = m; });
+    stockMatches.forEach((m) => { nameMap[m.name.toLowerCase()] = m; });
 
-    const enrichedItems = extracted.items.map(it => {
+    const enrichedItems = extracted.items.map((it) => {
       const key = (it.name || "").trim().toLowerCase();
       const match = nameMap[key];
       return {
@@ -218,7 +145,7 @@ async function commit(req, res, next) {
       const savedItems = [];
       for (const it of items) {
         const qty_received = parseFloat(it.qty) || 0;
-        const qty_accepted = qty_received; // All accepted for supplier-confirmed delivery
+        const qty_accepted = qty_received;
         const unit_price   = parseFloat(it.unit_price) || 0;
         const landed_cost  = parseFloat(it.landed_cost) || qty_accepted * unit_price;
         const item_code    = it.item_code || it.name.toUpperCase().replace(/\s+/g, "-").slice(0, 20);

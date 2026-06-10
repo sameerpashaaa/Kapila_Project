@@ -3,7 +3,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from "recharts";
-import { Bell, User, CheckCircle, AlertTriangle, Info, ArrowRight, Activity, Package, Layers, TrendingUp, Clock } from "lucide-react";
+import { Bell, User, CheckCircle, AlertTriangle, Info, ArrowRight, Activity, Package, Layers, TrendingUp, Clock, ClipboardList, Send, ChefHat, ArchiveRestore, Trash2 } from "lucide-react";
 import * as api from "../../api";
 
 import { COLORS as THEME } from "../../styles/colors";
@@ -198,12 +198,12 @@ export default function Dashboard() {
   
   // KPI Config
   const kpiCards = [
-    { label: "Total Stock Items", value: kpis.total_stock || 0, color: THEME.primary, delta: "Active inventory" },
-    { label: "Pending Indents", value: kpis.pending_indents || 0, color: (kpis.pending_indents || 0) > 0 ? THEME.warning : THEME.success, delta: (kpis.pending_indents || 0) > 0 ? "Requires action" : "All cleared" },
-    { label: "Today's Issuances", value: kpis.today_issuances || 0, color: THEME.success, delta: "Issued today" },
-    { label: "Plates Produced", value: kpis.today_plates || 0, color: THEME.primary, delta: "Across all depts" },
-    { label: "Leftover Qty", value: kpis.today_leftovers || 0, color: (kpis.today_leftovers || 0) > 0 ? THEME.warning : THEME.success, delta: "Recorded today" },
-    { label: "Overall Waste Rate", value: wasteRate, formatter: (v) => v.toFixed(1) + "%", color: (kpis.today_plates || 0) === 0 ? THEME.neutral : wasteRate > 2 ? THEME.danger : wasteRate > 1 ? THEME.warning : THEME.success, delta: (kpis.today_plates || 0) === 0 ? "No production" : wasteRate > 2 ? "Above target" : "On track" }
+    { label: "Total Stock Items", value: kpis.total_stock || 0, color: THEME.primary, delta: "Active inventory", icon: <Package size={18} /> },
+    { label: "Pending Indents", value: kpis.pending_indents || 0, color: (kpis.pending_indents || 0) > 0 ? THEME.warning : THEME.success, delta: (kpis.pending_indents || 0) > 0 ? "Requires action" : "All cleared", icon: <ClipboardList size={18} /> },
+    { label: "Today's Issuances", value: kpis.today_issuances || 0, color: THEME.success, delta: "Issued today", icon: <Send size={18} /> },
+    { label: "Plates Produced", value: kpis.today_plates || 0, color: THEME.primary, delta: "Across all depts", icon: <ChefHat size={18} /> },
+    { label: "Leftover Qty", value: kpis.today_leftovers || 0, color: (kpis.today_leftovers || 0) > 0 ? THEME.warning : THEME.success, delta: "Recorded today", icon: <ArchiveRestore size={18} /> },
+    { label: "Overall Waste Rate", value: wasteRate, formatter: (v) => v.toFixed(1) + "%", color: (kpis.today_plates || 0) === 0 ? THEME.neutral : wasteRate > 2 ? THEME.danger : wasteRate > 1 ? THEME.warning : THEME.success, delta: (kpis.today_plates || 0) === 0 ? "No production" : wasteRate > 2 ? "Above target" : "On track", icon: <Trash2 size={18} /> }
   ];
 
   // Stock Health Pie Data
@@ -286,12 +286,26 @@ export default function Dashboard() {
         {/* SECTION 2: KPI SUMMARY ROW */}
         <div className="dash-grid-auto-fit" style={{ display: "grid", gap: "20px" }}>
           {kpiCards.map((kpi, i) => (
-            <Card key={i} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em", color: THEME.muted, fontWeight: 600 }}>{kpi.label}</span>
-              <div style={{ fontSize: "28px", fontWeight: 700, color: kpi.color, marginTop: "8px", marginBottom: "4px" }}>
-                <AnimatedNumber value={kpi.value} formatter={kpi.formatter} />
+            <Card key={i} style={{ display: "flex", gap: "12px", alignItems: "center", padding: "12px 14px" }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: kpi.color + "18",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: kpi.color, flexShrink: 0
+              }}>
+                {kpi.icon}
               </div>
-              <span style={{ fontSize: "12px", color: THEME.neutral }}>{kpi.delta}</span>
+              <div>
+                <p style={{ fontSize: 10, color: THEME.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
+                  {kpi.label}
+                </p>
+                <p style={{ fontSize: 18, fontWeight: 700, color: kpi.color, lineHeight: 1.2, fontVariantNumeric: "tabular-nums", margin: "2px 0" }}>
+                  <AnimatedNumber value={kpi.value} formatter={kpi.formatter} />
+                </p>
+                <p style={{ fontSize: 10, color: THEME.muted, margin: 0 }}>
+                  {kpi.delta}
+                </p>
+              </div>
             </Card>
           ))}
         </div>

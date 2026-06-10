@@ -11,9 +11,19 @@ import { COLORS, UNITS, DEPARTMENTS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
+import { useLocalSpeech } from "../../hooks/useLocalSpeech";
+import QRCode from "qrcode";
+import { Banknote, PackageOpen, AlertTriangle, Filter, Users, Calendar, Tags } from "lucide-react";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const LIMIT = 20;
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return "—";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch { return dateStr; }
+};
 
 const toTitleCase = (str) => {
   if (!str) return "";
@@ -150,9 +160,10 @@ export default function StockScreen() {
 
   const [showQuickImport, setShowQuickImport] = useState(false);
   const [importText, setImportText] = useState("");
-  const [listening, setListening] = useState(false);
   const [listenLang, setListenLang] = useState("en-IN");
-  const [interimText, setInterimText] = useState("");
+
+  // Local speech-to-text (Whisper Tiny — no Google, no internet)
+  const { listening, statusMsg: speechStatus, transcript: speechTranscript, interimText, startRecording, stopRecording } = useLocalSpeech(listenLang);
   const [editMinAlert, setEditMinAlert] = useState("");
   const [groupByItem, setGroupByItem] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
@@ -414,9 +425,10 @@ export default function StockScreen() {
     });
   };
 
-  const printThermalLabel = (item) => {
+  const printThermalLabel = async (item) => {
     const printWindow = window.open("", "_blank", "width=400,height=300");
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${item.item_code}`;
+    // Generate QR code locally — no internet needed
+    const qrUrl = await QRCode.toDataURL(item.item_code, { width: 100, margin: 1 });
     printWindow.document.write(`
       <html>
         <head>
@@ -520,80 +532,22 @@ export default function StockScreen() {
     }
   };
 
-  const recognitionRef = useRef(null);
-
+  // Toggle recording with local Whisper (replaces Google Web Speech)
   const startListening = () => {
     if (listening) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setListening(false);
-      setInterimText("");
-      setMsg("Listening stopped.");
-      setTimeout(() => setMsg(""), 2000);
-      return;
+      stopRecording((status) => setMsg(status));
+    } else {
+      startRecording(
+        // onResult — append transcript to the text area
+        (text) => {
+          setImportText((prev) => (prev.trim() ? prev.trim() + "\n" + text : text));
+          setMsg("Transcription complete ✓");
+          setTimeout(() => setMsg(""), 3000);
+        },
+        // onStatus — show progress messages
+        (status) => setMsg(status)
+      );
     }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setMsg("Speech recognition not supported in this browser.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = listenLang;
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognitionRef.current = recognition;
-
-    setListening(true);
-    setMsg("Listening... speak now.");
-    setInterimText("");
-    recognition.start();
-
-    recognition.onresult = (event) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript + " ";
-        } else {
-          interimTranscript += result[0].transcript;
-        }
-      }
-
-      if (finalTranscript) {
-        setImportText((prev) => {
-          const currentBase = prev.trim();
-          const cleanAdd = finalTranscript.trim();
-          return currentBase ? currentBase + "\n" + cleanAdd : cleanAdd;
-        });
-        setInterimText("");
-      } else if (interimTranscript) {
-        setInterimText(interimTranscript);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      let friendlyError = event.error;
-      if (event.error === 'not-allowed') {
-        friendlyError = "Microphone access denied. Please click the camera/microphone icon in your browser URL search bar to change permissions to 'Allow'.";
-      } else if (event.error === 'no-speech') {
-        friendlyError = "No speech detected. Please speak closer to your microphone.";
-      } else if (event.error === 'network') {
-        friendlyError = "Network error. Google Speech Recognition service is unreachable.";
-      }
-      setMsg("🎙️ Speech error: " + friendlyError);
-      setListening(false);
-      setInterimText("");
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      setInterimText("");
-    };
   };
 
   const parseImportText = async () => {
@@ -771,416 +725,51 @@ export default function StockScreen() {
   const isLowActive = filters.low_stock === "true";
 
   return (
-    <Section title="Purchase & Stock" sub="Record incoming stock from suppliers">
-      {/* Valuation Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
-        <Card 
-          onClick={() => handleStatCardClick("total")}
-          style={{ 
-            padding: 14, 
-            display: "flex", 
-            flexDirection: "column", 
-            gap: 4, 
-            cursor: "pointer", 
-            transition: "all 0.2s ease",
-            border: isTotalActive ? `1px solid ${COLORS.teal}` : `1px solid ${COLORS.border}`,
-            boxShadow: isTotalActive ? `0 0 12px ${COLORS.teal}22` : "none",
-            transform: isTotalActive ? "translateY(-1px)" : "none"
-          }}
-        >
-          <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Total Active Spend</p>
-          <p style={{ fontFamily: "'DM Serif Display'", fontSize: 24, color: COLORS.teal }}>₹{parseFloat(stats.total_spend || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>Cumulative cost of all active batches {isTotalActive && "🏆 (Active View)"}</p>
-        </Card>
-        <Card 
-          onClick={() => handleStatCardClick("active")}
-          style={{ 
-            padding: 14, 
-            display: "flex", 
-            flexDirection: "column", 
-            gap: 4, 
-            cursor: "pointer", 
-            transition: "all 0.2s ease",
-            border: isActiveActive ? `1px solid ${COLORS.accent}` : `1px solid ${COLORS.border}`,
-            boxShadow: isActiveActive ? `0 0 12px ${COLORS.accent}22` : "none",
-            transform: isActiveActive ? "translateY(-1px)" : "none"
-          }}
-        >
-          <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Current Store Value</p>
-          <p style={{ fontFamily: "'DM Serif Display'", fontSize: 24, color: COLORS.accent }}>₹{parseFloat(stats.store_value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>Value of remaining inventory {isActiveActive && "🎯 (Active View)"}</p>
-        </Card>
-        <Card 
-          onClick={() => handleStatCardClick("low")}
-          style={{ 
-            padding: 14, 
-            display: "flex", 
-            flexDirection: "column", 
-            gap: 4, 
-            cursor: "pointer", 
-            transition: "all 0.2s ease",
-            border: isLowActive ? `1px solid ${COLORS.coral}` : `1px solid ${COLORS.border}`,
-            boxShadow: isLowActive ? `0 0 12px ${COLORS.coral}22` : "none",
-            transform: isLowActive ? "translateY(-1px)" : "none"
-          }}
-        >
-          <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Low Stock Value</p>
-          <p style={{ fontFamily: "'DM Serif Display'", fontSize: 24, color: COLORS.coral }}>₹{parseFloat(stats.low_stock_value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>Valuation of depleted stock items {isLowActive && "⚠️ (Active View)"}</p>
-        </Card>
+    <div style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%" }}>
+      {/* KPI Strip */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+        {[ 
+          { id: "total", label: "Total Active Spend", value: stats.total_spend, color: COLORS.teal, icon: <Banknote size={16} /> },
+          { id: "active", label: "Current Store Value", value: stats.store_value, color: COLORS.accent, icon: <PackageOpen size={16} /> },
+          { id: "low", label: "Low Stock Value", value: stats.low_stock_value, color: COLORS.coral, icon: <AlertTriangle size={16} /> }
+        ].map((kpi) => {
+          const isActive = (kpi.id === "total" && isTotalActive) || (kpi.id === "active" && isActiveActive) || (kpi.id === "low" && isLowActive);
+          return (
+            <Card
+              key={kpi.id}
+              onClick={() => handleStatCardClick(kpi.id)}
+              style={{ 
+                flex: 1,
+                padding: "10px 14px", 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 12, 
+                cursor: "pointer", 
+                transition: "all 0.2s ease",
+                border: isActive ? `1px solid ${kpi.color}` : `1px solid ${COLORS.border}`,
+                boxShadow: isActive ? `0 0 12px ${kpi.color}22` : "none",
+                transform: isActive ? "translateY(-1px)" : "none"
+              }}
+            >
+              <div style={{ 
+                display: "flex", alignItems: "center", justifyContent: "center", 
+                width: 32, height: 32, borderRadius: 8, 
+                background: kpi.color + "15", color: kpi.color 
+              }}>
+                {kpi.icon}
+              </div>
+              <div>
+                <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{kpi.label}</p>
+                <p style={{ fontFamily: "'DM Serif Display'", fontSize: 20, color: COLORS.text, letterSpacing: "-0.02em" }}>₹{parseFloat(kpi.value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20 }}>
-        {/* Left Column containing Add Form and Low Stock Alerts */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Add form */}
-          <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <p style={{ fontSize: 12, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Add new stock</p>
-            <div style={{ display: "flex", gap: 6 }}>
-              <Btn variant="ghost" small onClick={() => setShowQuickImport(!showQuickImport)} style={{ fontSize: 11, padding: "3px 8px" }}>
-                {showQuickImport ? "✍️ Standard" : "✍️ Quick Import"}
-              </Btn>
-              <Btn variant="ghost" small onClick={() => fileInputRef.current.click()} style={{ fontSize: 11, padding: "3px 8px" }} disabled={scanningBill}>
-                {scanningBill ? "⏳ Scanning…" : "📷 Scan Slip"}
-              </Btn>
-            </div>
-          </div>
-          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleScanBill} />
-
-          {scannedPreview ? (
-            <div>
-              <p style={{ fontSize: 12, color: COLORS.accent, fontWeight: 600, marginBottom: 12 }}>📋 Scanned Bill Review</p>
-              <Input label="Supplier / Vendor" value={scannedPreview.supplier} onChange={(e) => setScannedPreview(prev => ({ ...prev, supplier: e.target.value }))} />
-              <Input label="Date received" type="date" value={scannedPreview.date} onChange={(e) => setScannedPreview(prev => ({ ...prev, date: e.target.value }))} />
-              
-              <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 12 }}>Items Scanned</p>
-              <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
-                {scannedPreview.items.map((it, idx) => (
-                  <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 24px", gap: 6, marginBottom: 8, alignItems: "center" }}>
-                    <input value={it.name} onChange={(e) => updateScannedItem(idx, "name", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Item" />
-                    <input type="number" value={it.qty} onChange={(e) => updateScannedItem(idx, "qty", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Qty" />
-                    <input type="number" step="0.01" value={it.price} onChange={(e) => updateScannedItem(idx, "price", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Price" />
-                    <button onClick={() => removeScannedItem(idx)} style={{ background: "transparent", border: "none", color: COLORS.coral, cursor: "pointer", fontSize: 14 }}>✕</button>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn onClick={submitScannedItems} style={{ flex: 1 }}>Confirm & Log All</Btn>
-                <Btn variant="danger" onClick={() => setScannedPreview(null)}>Cancel</Btn>
-              </div>
-            </div>
-          ) : showQuickImport ? (
-            <div>
-              <p style={{ fontSize: 12, color: COLORS.accent, fontWeight: 600, marginBottom: 4 }}>✍️ Quick Dictate / Text Import</p>
-              <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 12 }}>Type, paste WhatsApp text, or use voice dictation in Telugu and other local languages.</p>
-              
-              {(() => {
-                const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                if (!isSecure) {
-                  return (
-                    <div style={{
-                      background: COLORS.coral + "15",
-                      border: `1px solid ${COLORS.coral}33`,
-                      borderRadius: 6,
-                      padding: "8px 10px",
-                      fontSize: 11,
-                      color: COLORS.coral,
-                      marginBottom: 12,
-                      lineHeight: 1.3
-                    }}>
-                      ⚠️ <strong>Security Restriction:</strong> Web Speech recognition requires a secure context. Because this app is accessed over HTTP on a custom IP, your browser has blocked the microphone. Please open <strong>http://localhost:5173</strong> (or setup HTTPS) to enable dictation.
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-              
-              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Dictation Language</label>
-                  <select
-                    value={listenLang}
-                    onChange={(e) => setListenLang(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "6px 8px",
-                      fontSize: 12,
-                      background: COLORS.bg,
-                      border: `1px solid ${COLORS.border}`,
-                      color: COLORS.text,
-                      borderRadius: 4
-                    }}
-                  >
-                    <option value="en-IN">🇺🇸 English (en-IN)</option>
-                    <option value="te-IN">🇮🇳 Telugu / తెలుగు (te-IN)</option>
-                    <option value="hi-IN">🇮🇳 Hindi / हिन्दी (hi-IN)</option>
-                    <option value="ta-IN">🇮🇳 Tamil / தமிழ் (ta-IN)</option>
-                    <option value="kn-IN">🇮🇳 Kannada / ಕನ್ನಡ (kn-IN)</option>
-                    <option value="ml-IN">🇮🇳 Malayalam / മലയാളം (ml-IN)</option>
-                    <option value="mr-IN">🇮🇳 Marathi / मराठी (mr-IN)</option>
-                    <option value="gu-IN">🇮🇳 Gujarati / ગુજરાતી (gu-IN)</option>
-                    <option value="bn-IN">🇮🇳 Bengali / বাংলা (bn-IN)</option>
-                    <option value="pa-IN">🇮🇳 Punjabi / ਪੰਜਾਬੀ (pa-IN)</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-end" }}>
-                  <button
-                    onClick={startListening}
-                    className={listening ? "pulse" : ""}
-                    style={{
-                      padding: "7px 12px",
-                      fontSize: 12,
-                      background: listening ? COLORS.coral : COLORS.bg,
-                      border: `1px solid ${listening ? COLORS.coral : COLORS.border}`,
-                      color: listening ? "#fff" : COLORS.text,
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      fontWeight: 600,
-                      transition: "all 0.2s",
-                      height: "33px"
-                    }}
-                  >
-                    {listening ? "🛑 Stop" : "🎤 Speak"}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Pasted Text or Transcribed Voice</label>
-                <textarea
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder="e.g. Aloo 10 kilo at 20&#10;Tamatalu 5 kg rate 40&#10;KPL-101 20 kg"
-                  rows={6}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    fontSize: 12,
-                    background: COLORS.bg,
-                    border: `1px solid ${COLORS.border}`,
-                    color: COLORS.text,
-                    borderRadius: 4,
-                    fontFamily: "inherit",
-                    resize: "vertical"
-                  }}
-                />
-                {interimText && (
-                  <div style={{ 
-                    fontSize: 12, 
-                    color: COLORS.accent, 
-                    marginTop: 6, 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: 6,
-                    padding: "6px 10px",
-                    background: COLORS.accent + "11",
-                    border: `1px dashed ${COLORS.accent}44`,
-                    borderRadius: 4
-                  }}>
-                    <span className="pulse" style={{ fontSize: 10 }}>🎙️</span>
-                    <span style={{ fontStyle: "italic" }}>Hearing: "{interimText}"...</span>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn onClick={parseImportText} style={{ flex: 1 }} disabled={!importText.trim()}>Parse & Review</Btn>
-                <Btn variant="ghost" onClick={() => { setShowQuickImport(false); setImportText(""); }} style={{ border: `1px solid ${COLORS.border}`, flex: 1 }}>Cancel</Btn>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <Input label="Item name" value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Rice, Tomatoes…" list="stock-names" />
-              <datalist id="stock-names">
-                {stockNames.map((n) => <option key={n} value={n} />)}
-              </datalist>
-
-              {form.name && (() => {
-                const comparison = getSupplierPriceComparison(form.name);
-                if (!comparison || comparison.length === 0) return null;
-                return (
-                  <div style={{
-                    background: COLORS.teal + "11",
-                    border: `1px dashed ${COLORS.teal}44`,
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: 11,
-                    marginBottom: 12,
-                    lineHeight: 1.3
-                  }}>
-                    <p style={{ color: COLORS.teal, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>💡 Best Supplier Price Comparison</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      {comparison.map((item, idx) => (
-                        <div key={idx} style={{ display: "flex", justifyContent: "space-between", color: COLORS.text }}>
-                          <span style={{ color: COLORS.muted }}>{item.supplier || "Unknown Supplier"}:</span>
-                          <span style={{ fontWeight: 600, color: idx === 0 ? COLORS.success : COLORS.text }}>
-                            ₹{item.price.toFixed(2)} {idx === 0 ? "🏆 (Cheapest)" : ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Input label="Quantity" type="number" value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} placeholder="0" />
-                <Select label="Unit" value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}>
-                  {UNITS.map((u) => <option key={u}>{u}</option>)}
-                </Select>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Input label={`Price (per ${form.unit})`} type="number" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="0.00" />
-                <Input label="Supplier" value={form.supplier} onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))} placeholder="e.g. National Traders" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Input label="GST / Tax (%)" type="number" value={form.gst} onChange={(e) => setForm((f) => ({ ...f, gst: e.target.value }))} placeholder="e.g. 5, 12" />
-                <Input label="Freight / Transport (₹)" type="number" value={form.freight} onChange={(e) => setForm((f) => ({ ...f, freight: e.target.value }))} placeholder="e.g. 150" />
-              </div>
-              {form.qty && form.price && (() => {
-                const quantityVal = parseFloat(form.qty) || 0;
-                const basePriceVal = parseFloat(form.price) || 0;
-                const gstVal = parseFloat(form.gst) || 0;
-                const freightVal = parseFloat(form.freight) || 0;
-                const landedPrice = quantityVal > 0 
-                  ? (basePriceVal * (1 + gstVal / 100)) + (freightVal / quantityVal)
-                  : basePriceVal;
-                return (
-                  <div style={{ fontSize: 11, background: COLORS.bg + "44", padding: 8, borderRadius: 4, marginBottom: 12, border: `1px solid ${COLORS.border}33`, color: COLORS.muted }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span>Base Total Value:</span>
-                      <span style={{ color: COLORS.text, fontWeight: 500 }}>₹{(quantityVal * basePriceVal).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    {(gstVal > 0 || freightVal > 0) && (
-                      <div style={{ display: "flex", justifyContent: "space-between", color: COLORS.teal, fontWeight: 600, borderTop: `1px solid ${COLORS.border}33`, paddingTop: 4, marginTop: 4 }}>
-                        <span>Landed Cost (with Tax & Freight):</span>
-                        <span>₹{landedPrice.toFixed(2)} / {form.unit}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Input label="Expiry Date" type="date" value={form.expiry_date} onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))} />
-                <Input label="Min Alert Level" type="number" step="0.01" value={form.min_alert_qty} onChange={(e) => setForm((f) => ({ ...f, min_alert_qty: e.target.value }))} placeholder="e.g. 5.0" />
-              </div>
-              <Input label="Date received" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-              <Btn onClick={add} style={{ width: "100%", marginTop: 4 }}>Add to Store</Btn>
-            </div>
-          )}
-          {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 8, textAlign: "center" }}>{msg}</p>}
-          </Card>
-
-          {/* Low Stock Alerts & Expiry Warnings Card */}
-          <Card style={{ padding: 16 }}>
-            {/* Header / Global Action */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, borderBottom: `1px solid ${COLORS.border}55`, paddingBottom: 10 }}>
-              <div>
-                <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>⚠️ Store Alerts</p>
-                <p style={{ fontSize: 9, color: COLORS.muted, marginTop: 2 }}>Auto-evaluated warnings</p>
-              </div>
-              {lowStockItems.length > 0 && (
-                <div style={{ display: "flex", gap: 4 }}>
-                  <Btn variant="ghost" small onClick={copyPOToClipboard} style={{ fontSize: 10, padding: "3px 6px", border: `1px solid ${COLORS.border}` }} title="Copy Purchase Order to Clipboard">
-                    📋 Copy PO
-                  </Btn>
-                  <Btn variant="ghost" small onClick={generateWhatsAppPO} style={{ fontSize: 10, padding: "3px 6px", background: "#25D36622", border: "1px solid #25D36644", color: "#25D366" }} title="Send Purchase Order to WhatsApp">
-                    💬 PO
-                  </Btn>
-                </div>
-              )}
-            </div>
-
-            {/* Section 1: Low Stock alerts */}
-            <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>📉 Low Stock Levels ({lowStockItems.length})</p>
-            {lowStockItems.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6, marginBottom: 16 }}>
-                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 500 }}>✅ All levels healthy</p>
-              </div>
-            ) : (
-              <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-                {lowStockItems.map((item) => {
-                  const pct = item.qty > 0 ? (item.remaining / item.qty) * 100 : 0;
-                  return (
-                    <div key={item.id} style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: 10,
-                      background: COLORS.bg + "55",
-                      border: `1px solid ${COLORS.border}44`,
-                      borderRadius: 6
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1 }}>
-                        <span style={{ fontSize: 14 }}>{getItemEmoji(item.name)}</span>
-                        <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
-                          <span style={{ color: COLORS.accent, fontSize: 8, display: "block", fontWeight: 600 }}>{item.item_code}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
-                          <span style={{ fontSize: 10, color: COLORS.coral, display: "block", marginTop: 2 }}>
-                            {parseFloat(item.remaining).toFixed(1)} / {item.qty} {item.unit} ({pct.toFixed(0)}%)
-                          </span>
-                        </div>
-                      </div>
-                      <Btn variant="ghost" small onClick={() => handleReorderClick(item)} style={{ fontSize: 9, padding: "3px 6px", border: `1px solid ${COLORS.border}` }}>
-                        🛒
-                      </Btn>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Section 2: Expiry warnings */}
-            <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>🚨 Spoilage / Expiry Alerts ({expiringSoonItems.length})</p>
-            {expiringSoonItems.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6 }}>
-                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 500 }}>✅ No near expiries</p>
-              </div>
-            ) : (
-              <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-                {expiringSoonItems.map((item) => {
-                  const todayVal = new Date(today());
-                  const expiryVal = new Date(item.expiry_date);
-                  const diffTime = expiryVal - todayVal;
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                  return (
-                    <div key={item.id} style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: 10,
-                      background: COLORS.bg + "55",
-                      border: `1px solid ${COLORS.border}44`,
-                      borderRadius: 6
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1 }}>
-                        <span style={{ fontSize: 14 }}>{getItemEmoji(item.name)}</span>
-                        <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
-                          <span style={{ color: COLORS.accent, fontSize: 8, display: "block", fontWeight: 600 }}>{item.item_code}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
-                          <span style={{ fontSize: 10, color: COLORS.coral, display: "block", marginTop: 2 }}>
-                            {item.remaining} {item.unit} remaining
-                          </span>
-                        </div>
-                      </div>
-                      <span className="badge" style={{ background: "#7f1d1d22", color: COLORS.coral, fontSize: 9 }}>
-                        {diffDays === 0 ? "Today" : `${diffDays} days`}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-        </div>
-
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, flex: 1, minHeight: 0 }}>
         {/* List */}
-        <Card style={{ padding: 0, overflow: "hidden", alignSelf: "start" }}>
+        <Card style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
           {/* Tabs header */}
           <div 
             role="tablist" 
@@ -1241,38 +830,65 @@ export default function StockScreen() {
           </div>
 
           {activeTab === "inventory" && (
-            <>
-              <div style={{ padding: "14px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <SearchBar onSearch={(q) => load({ page: 1, q })} placeholder="Search items…" style={{ flex: 1 }} />
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+              <div style={{ padding: "14px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", background: COLORS.bg + "22", flexShrink: 0 }}>
+                <SearchBar onSearch={(q) => load({ page: 1, q })} placeholder="Search items…" style={{ flex: 1, minWidth: 200 }} />
                 <Btn variant="ghost" small onClick={() => setGroupByItem(!groupByItem)} style={{ fontSize: 11, padding: "7px 10px", border: `1px solid ${COLORS.border}` }}>
                   {groupByItem ? "📋 View All Batches" : "📊 Group by Item"}
                 </Btn>
-                <select
-                  value={filters.low_stock}
-                  onChange={(e) => handleFilterChange("low_stock", e.target.value)}
-                  style={{ width: 120, padding: "7px 10px", fontSize: 12 }}
-                >
-                  <option value="">All stock</option>
-                  <option value="true">Low stock only</option>
-                </select>
-                <select
-                  value={filters.expiry_status}
-                  onChange={(e) => handleFilterChange("expiry_status", e.target.value)}
-                  style={{ width: 120, padding: "7px 10px", fontSize: 12 }}
-                >
-                  <option value="">All expiry</option>
-                  <option value="expired">Expired</option>
-                  <option value="expiring">Expiring soon</option>
-                  <option value="fresh">Fresh</option>
-                </select>
-                <select
-                  value={filters.supplier}
-                  onChange={(e) => handleFilterChange("supplier", e.target.value)}
-                  style={{ width: 140, padding: "7px 10px", fontSize: 12 }}
-                >
-                  <option value="">All suppliers</option>
-                  {uniqueSuppliers.map((sup) => <option key={sup} value={sup}>{sup}</option>)}
-                </select>
+                
+                <div style={{ height: "24px", width: "1px", background: COLORS.border, margin: "0 6px" }}></div>
+                
+                {/* Pill Filters */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => handleFilterChange("low_stock", filters.low_stock === "true" ? "" : "true")}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "6px 12px", fontSize: 11, fontWeight: 600,
+                      background: filters.low_stock === "true" ? COLORS.coral + "15" : "transparent",
+                      color: filters.low_stock === "true" ? COLORS.coral : COLORS.muted,
+                      border: `1px solid ${filters.low_stock === "true" ? COLORS.coral + "44" : COLORS.border}`,
+                      borderRadius: 16, cursor: "pointer", transition: "all 0.2s"
+                    }}
+                  >
+                    <Filter size={12} /> Low Stock
+                  </button>
+
+                  <select
+                    value={filters.expiry_status}
+                    onChange={(e) => handleFilterChange("expiry_status", e.target.value)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "6px 12px", fontSize: 11, fontWeight: 600,
+                      background: filters.expiry_status ? COLORS.accent + "15" : "transparent",
+                      color: filters.expiry_status ? COLORS.accent : COLORS.muted,
+                      border: `1px solid ${filters.expiry_status ? COLORS.accent + "44" : COLORS.border}`,
+                      borderRadius: 16, cursor: "pointer", outline: "none", appearance: "none"
+                    }}
+                  >
+                    <option value="">⏱️ All Expiry</option>
+                    <option value="expired">Expired</option>
+                    <option value="expiring">Expiring Soon</option>
+                    <option value="fresh">Fresh</option>
+                  </select>
+
+                  <select
+                    value={filters.supplier}
+                    onChange={(e) => handleFilterChange("supplier", e.target.value)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "6px 12px", fontSize: 11, fontWeight: 600,
+                      background: filters.supplier ? COLORS.teal + "15" : "transparent",
+                      color: filters.supplier ? COLORS.teal : COLORS.muted,
+                      border: `1px solid ${filters.supplier ? COLORS.teal + "44" : COLORS.border}`,
+                      borderRadius: 16, cursor: "pointer", outline: "none", appearance: "none"
+                    }}
+                  >
+                    <option value="">🚚 All Suppliers</option>
+                    {uniqueSuppliers.map((sup) => <option key={sup} value={sup}>{sup}</option>)}
+                  </select>
+                </div>
               </div>
 
               {loading ? (
@@ -1282,8 +898,8 @@ export default function StockScreen() {
               ) : items.length === 0 ? (
                 <p style={{ color: COLORS.muted, textAlign: "center", padding: 40 }}>No stock recorded yet</p>
               ) : groupByItem ? (
-                <>
-                  <div style={{ overflowY: "auto", maxHeight: 380 }}>
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                  <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
                     <table>
                       <thead>
                         <tr>
@@ -1444,10 +1060,10 @@ export default function StockScreen() {
                     </table>
                   </div>
                   <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
-                </>
+                </div>
               ) : (
-                <>
-                  <div style={{ overflowY: "auto", maxHeight: 380 }}>
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                  <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
                     <table>
                       <thead><tr><th>Item</th><th>Batch</th><th>Original Qty</th><th>Remaining</th><th>Unit Cost</th><th>Value (Rem / Orig)</th><th>Supplier</th><th>Expiry</th><th>Date</th><th></th></tr></thead>
                       <tbody>
@@ -1554,7 +1170,7 @@ export default function StockScreen() {
                               </td>
                               <td style={{ color: COLORS.muted }}>{item.supplier || "—"}</td>
                               <td>{getExpiryBadge(item.expiry_date) || "—"}</td>
-                              <td style={{ color: COLORS.muted }}>{item.date}</td>
+                              <td style={{ color: COLORS.muted }}>{formatDate(item.date)}</td>
                               <td>
                                 <div style={{ display: "flex", gap: 4 }}>
                                   <Btn variant="ghost" small onClick={() => setPrintModalItem(item)} title="Print Label" style={{ padding: "4px 8px", border: `1px solid ${COLORS.border}` }}>🏷️</Btn>
@@ -1568,16 +1184,16 @@ export default function StockScreen() {
                                   <Btn variant="danger" small onClick={() => remove(item.id)}>✕</Btn>
                                 </div>
                               </td>
-                            </tr>
+                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
                   <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
-                </>
+                </div>
               )}
-            </>
+            </div>
           )}
 
           {activeTab === "ledger" && (
@@ -1823,7 +1439,8 @@ export default function StockScreen() {
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                 {printConfig.labelFormat === "qr" ? (
                   <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=65x65&data=${printModalItem.item_code}`}
+                    src={printModalItem._qrDataUrl || ""}
+                    ref={(el) => { if (el && !printModalItem._qrDataUrl) QRCode.toDataURL(printModalItem.item_code, { width: 65, margin: 1 }).then(url => setPrintModalItem(p => ({ ...p, _qrDataUrl: url }))); }}
                     style={{ width: 65, height: 65 }}
                     alt="QR Code"
                   />
@@ -1889,19 +1506,22 @@ export default function StockScreen() {
             {/* Buttons */}
             <div style={{ display: "flex", gap: 10 }}>
               <Btn 
-                onClick={() => {
+              onClick={async () => {
                   const printWindow = window.open("", "_blank", "width=400,height=300");
-                  const content = printConfig.labelFormat === "qr" 
-                    ? `<img class="qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${printModalItem.item_code}" onload="window.print(); window.close();" />`
-                    : `
+                  let content;
+                  if (printConfig.labelFormat === "qr") {
+                    const url = await QRCode.toDataURL(printModalItem.item_code, { width: 100, margin: 1 });
+                    content = `<img class="qr" src="${url}" />`;
+                  } else {
+                    content = `
                       <div class="barcode-container">
                         <div class="barcode">
                           ${[2, 1, 3, 1, 2, 4, 1, 2, 3, 1, 2, 1, 3, 1, 2].map((w, i) => `<div class="bar" style="flex-grow: ${w}; background: ${i % 2 === 0 ? "#000" : "#fff"}"></div>`).join("")}
                         </div>
                         <div class="barcode-text">* ${printModalItem.item_code} *</div>
                       </div>
-                      <script>window.onload = function() { window.print(); window.close(); }</script>
                     `;
+                  }
 
                   printWindow.document.write(`
                     <html>
@@ -1979,7 +1599,8 @@ export default function StockScreen() {
                           ${printConfig.showExpiry && printModalItem.expiry_date ? `<div class="date">Exp: ${printModalItem.expiry_date}</div>` : ""}
                           ${printConfig.showPrice && printModalItem.price ? `<div class="date" style="font-weight:bold;">Price: ₹${parseFloat(printModalItem.price).toFixed(2)}</div>` : ""}
                         </div>
-                        \${content}
+                        ${content}
+                        <script>window.onload = function() { window.print(); window.close(); }</script>
                       </body>
                     </html>
                   `);
@@ -2142,6 +1763,361 @@ export default function StockScreen() {
           </div>
         );
       })()}
-    </Section>
+    {/* Right Panel containing Add Form and Low Stock Alerts */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Low Stock Alerts & Expiry Warnings Card */}
+          <Card style={{ padding: 16 }}>
+            {/* Header / Global Action */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, borderBottom: `1px solid ${COLORS.border}55`, paddingBottom: 10 }}>
+              <div>
+                <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>⚠️ Store Alerts</p>
+                <p style={{ fontSize: 9, color: COLORS.muted, marginTop: 2 }}>Auto-evaluated warnings</p>
+              </div>
+              {lowStockItems.length > 0 && (
+                <div style={{ display: "flex", gap: 4 }}>
+                  <Btn variant="ghost" small onClick={copyPOToClipboard} style={{ fontSize: 10, padding: "3px 6px", border: `1px solid ${COLORS.border}` }} title="Copy Purchase Order to Clipboard">
+                    📋 Copy PO
+                  </Btn>
+                  <Btn variant="ghost" small onClick={generateWhatsAppPO} style={{ fontSize: 10, padding: "3px 6px", background: "#25D36622", border: "1px solid #25D36644", color: "#25D366" }} title="Send Purchase Order to WhatsApp">
+                    💬 PO
+                  </Btn>
+                </div>
+              )}
+            </div>
+
+            {/* Section 1: Low Stock alerts */}
+            <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>📉 Low Stock Levels ({lowStockItems.length})</p>
+            {lowStockItems.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6, marginBottom: 16 }}>
+                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 500 }}>✅ All levels healthy</p>
+              </div>
+            ) : (
+              <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                {lowStockItems.map((item) => {
+                  const pct = item.qty > 0 ? (item.remaining / item.qty) * 100 : 0;
+                  return (
+                    <div key={item.id} style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: 10,
+                      background: COLORS.bg + "55",
+                      border: `1px solid ${COLORS.border}44`,
+                      borderRadius: 6
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1 }}>
+                        <span style={{ fontSize: 14 }}>{getItemEmoji(item.name)}</span>
+                        <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
+                          <span style={{ color: COLORS.accent, fontSize: 8, display: "block", fontWeight: 600 }}>{item.item_code}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
+                          <span style={{ fontSize: 10, color: COLORS.coral, display: "block", marginTop: 2 }}>
+                            {parseFloat(item.remaining).toFixed(1)} / {item.qty} {item.unit} ({pct.toFixed(0)}%)
+                          </span>
+                          <div style={{ height: 4, background: COLORS.border + "55", borderRadius: 2, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
+                            <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, pct))}%`, background: COLORS.coral }} />
+                          </div>
+                        </div>
+                      </div>
+                      <Btn variant="ghost" small onClick={() => handleReorderClick(item)} style={{ fontSize: 9, padding: "3px 6px", border: `1px solid ${COLORS.border}` }}>
+                        🛒
+                      </Btn>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Section 2: Expiry warnings */}
+            <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>🚨 Spoilage / Expiry Alerts ({expiringSoonItems.length})</p>
+            {expiringSoonItems.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6 }}>
+                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 500 }}>✅ No near expiries</p>
+              </div>
+            ) : (
+              <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+                {expiringSoonItems.map((item) => {
+                  const todayVal = new Date(today());
+                  const expiryVal = new Date(item.expiry_date);
+                  const diffTime = expiryVal - todayVal;
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  return (
+                    <div key={item.id} style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: 10,
+                      background: COLORS.bg + "55",
+                      border: `1px solid ${COLORS.border}44`,
+                      borderRadius: 6
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", flex: 1 }}>
+                        <span style={{ fontSize: 14 }}>{getItemEmoji(item.name)}</span>
+                        <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
+                          <span style={{ color: COLORS.accent, fontSize: 8, display: "block", fontWeight: 600 }}>{item.item_code}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
+                          <span style={{ fontSize: 10, color: COLORS.coral, display: "block", marginTop: 2 }}>
+                            {item.remaining} {item.unit} remaining
+                          </span>
+                          <div style={{ height: 4, background: COLORS.border + "55", borderRadius: 2, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
+                            <div style={{ height: "100%", width: diffDays <= 0 ? "100%" : `${Math.max(10, 100 - (diffDays * 10))}%`, background: COLORS.coral }} />
+                          </div>
+                        </div>
+                      </div>
+                      <span className="badge" style={{ background: "#7f1d1d22", color: COLORS.coral, fontSize: 9 }}>
+                        {diffDays <= 0 ? "Today" : `${diffDays} days`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        
+          {/* Add form */}
+          <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <p style={{ fontSize: 12, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Add new stock</p>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Btn variant="ghost" small onClick={() => setShowQuickImport(!showQuickImport)} style={{ fontSize: 11, padding: "3px 8px" }}>
+                {showQuickImport ? "✍️ Standard" : "✍️ Quick Import"}
+              </Btn>
+              <Btn variant="ghost" small onClick={() => fileInputRef.current.click()} style={{ fontSize: 11, padding: "3px 8px" }} disabled={scanningBill}>
+                {scanningBill ? "⏳ Scanning…" : "📷 Scan Slip"}
+              </Btn>
+            </div>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleScanBill} />
+
+          {scannedPreview ? (
+            <div>
+              <p style={{ fontSize: 12, color: COLORS.accent, fontWeight: 600, marginBottom: 12 }}>📋 Scanned Bill Review</p>
+              <Input label="Supplier / Vendor" value={scannedPreview.supplier} onChange={(e) => setScannedPreview(prev => ({ ...prev, supplier: e.target.value }))} />
+              <Input label="Date received" type="date" value={scannedPreview.date} onChange={(e) => setScannedPreview(prev => ({ ...prev, date: e.target.value }))} />
+              
+              <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, marginTop: 12 }}>Items Scanned</p>
+              <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
+                {scannedPreview.items.map((it, idx) => (
+                  <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 24px", gap: 6, marginBottom: 8, alignItems: "center" }}>
+                    <input value={it.name} onChange={(e) => updateScannedItem(idx, "name", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Item" />
+                    <input type="number" value={it.qty} onChange={(e) => updateScannedItem(idx, "qty", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Qty" />
+                    <input type="number" step="0.01" value={it.price} onChange={(e) => updateScannedItem(idx, "price", e.target.value)} style={{ padding: "4px 6px", fontSize: 12, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }} placeholder="Price" />
+                    <button onClick={() => removeScannedItem(idx)} style={{ background: "transparent", border: "none", color: COLORS.coral, cursor: "pointer", fontSize: 14 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn onClick={submitScannedItems} style={{ flex: 1 }}>Confirm & Log All</Btn>
+                <Btn variant="danger" onClick={() => setScannedPreview(null)}>Cancel</Btn>
+              </div>
+            </div>
+          ) : showQuickImport ? (
+            <div>
+              <p style={{ fontSize: 12, color: COLORS.accent, fontWeight: 600, marginBottom: 4 }}>✍️ Quick Dictate / Text Import</p>
+              <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 12 }}>Type, paste WhatsApp text, or use voice dictation in Telugu and other local languages.</p>
+              
+              {(() => {
+                const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                if (!isSecure) {
+                  return (
+                    <div style={{
+                      background: COLORS.coral + "15",
+                      border: `1px solid ${COLORS.coral}33`,
+                      borderRadius: 6,
+                      padding: "8px 10px",
+                      fontSize: 11,
+                      color: COLORS.coral,
+                      marginBottom: 12,
+                      lineHeight: 1.3
+                    }}>
+                      ⚠️ <strong>Security Restriction:</strong> Web Speech recognition requires a secure context. Because this app is accessed over HTTP on a custom IP, your browser has blocked the microphone. Please open <strong>http://localhost:5173</strong> (or setup HTTPS) to enable dictation.
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Dictation Language</label>
+                  <select
+                    value={listenLang}
+                    onChange={(e) => setListenLang(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px",
+                      fontSize: 12,
+                      background: COLORS.bg,
+                      border: `1px solid ${COLORS.border}`,
+                      color: COLORS.text,
+                      borderRadius: 4
+                    }}
+                  >
+                    <option value="en-IN">🇺🇸 English (en-IN)</option>
+                    <option value="te-IN">🇮🇳 Telugu / తెలుగు (te-IN)</option>
+                    <option value="hi-IN">🇮🇳 Hindi / हिन्दी (hi-IN)</option>
+                    <option value="ta-IN">🇮🇳 Tamil / தமிழ் (ta-IN)</option>
+                    <option value="kn-IN">🇮🇳 Kannada / ಕನ್ನಡ (kn-IN)</option>
+                    <option value="ml-IN">🇮🇳 Malayalam / മലയാളം (ml-IN)</option>
+                    <option value="mr-IN">🇮🇳 Marathi / मराठी (mr-IN)</option>
+                    <option value="gu-IN">🇮🇳 Gujarati / ગુજરાતી (gu-IN)</option>
+                    <option value="bn-IN">🇮🇳 Bengali / বাংলা (bn-IN)</option>
+                    <option value="pa-IN">🇮🇳 Punjabi / ਪੰਜਾਬੀ (pa-IN)</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <button
+                    onClick={startListening}
+                    className={listening ? "pulse" : ""}
+                    style={{
+                      padding: "7px 12px",
+                      fontSize: 12,
+                      background: listening ? COLORS.coral : COLORS.bg,
+                      border: `1px solid ${listening ? COLORS.coral : COLORS.border}`,
+                      color: listening ? "#fff" : COLORS.text,
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontWeight: 600,
+                      transition: "all 0.2s",
+                      height: "33px"
+                    }}
+                  >
+                    {listening ? "🛑 Stop" : "🎤 Speak"}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Pasted Text or Transcribed Voice</label>
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder="e.g. Aloo 10 kilo at 20&#10;Tamatalu 5 kg rate 40&#10;KPL-101 20 kg"
+                  rows={6}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    fontSize: 12,
+                    background: COLORS.bg,
+                    border: `1px solid ${COLORS.border}`,
+                    color: COLORS.text,
+                    borderRadius: 4,
+                    fontFamily: "inherit",
+                    resize: "vertical"
+                  }}
+                />
+                {interimText && (
+                  <div style={{ 
+                    fontSize: 12, 
+                    color: COLORS.accent, 
+                    marginTop: 6, 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: 6,
+                    padding: "6px 10px",
+                    background: COLORS.accent + "11",
+                    border: `1px dashed ${COLORS.accent}44`,
+                    borderRadius: 4
+                  }}>
+                    <span className="pulse" style={{ fontSize: 10 }}>🎙️</span>
+                    <span style={{ fontStyle: "italic" }}>Hearing: "{interimText}"...</span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn onClick={parseImportText} style={{ flex: 1 }} disabled={!importText.trim()}>Parse & Review</Btn>
+                <Btn variant="ghost" onClick={() => { setShowQuickImport(false); setImportText(""); }} style={{ border: `1px solid ${COLORS.border}`, flex: 1 }}>Cancel</Btn>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Input label="Item name" value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Rice, Tomatoes…" list="stock-names" />
+              <datalist id="stock-names">
+                {stockNames.map((n) => <option key={n} value={n} />)}
+              </datalist>
+
+              {form.name && (() => {
+                const comparison = getSupplierPriceComparison(form.name);
+                if (!comparison || comparison.length === 0) return null;
+                return (
+                  <div style={{
+                    background: COLORS.teal + "11",
+                    border: `1px dashed ${COLORS.teal}44`,
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 11,
+                    marginBottom: 12,
+                    lineHeight: 1.3
+                  }}>
+                    <p style={{ color: COLORS.teal, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>💡 Best Supplier Price Comparison</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      {comparison.map((item, idx) => (
+                        <div key={idx} style={{ display: "flex", justifyContent: "space-between", color: COLORS.text }}>
+                          <span style={{ color: COLORS.muted }}>{item.supplier || "Unknown Supplier"}:</span>
+                          <span style={{ fontWeight: 600, color: idx === 0 ? COLORS.success : COLORS.text }}>
+                            ₹{item.price.toFixed(2)} {idx === 0 ? "🏆 (Cheapest)" : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Input label="Quantity" type="number" value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} placeholder="0" />
+                <Select label="Unit" value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}>
+                  {UNITS.map((u) => <option key={u}>{u}</option>)}
+                </Select>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Input label={`Price (per ${form.unit})`} type="number" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="0.00" />
+                <Input label="Supplier" value={form.supplier} onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))} placeholder="e.g. National Traders" />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Input label="GST / Tax (%)" type="number" value={form.gst} onChange={(e) => setForm((f) => ({ ...f, gst: e.target.value }))} placeholder="e.g. 5, 12" />
+                <Input label="Freight / Transport (₹)" type="number" value={form.freight} onChange={(e) => setForm((f) => ({ ...f, freight: e.target.value }))} placeholder="e.g. 150" />
+              </div>
+              {form.qty && form.price && (() => {
+                const quantityVal = parseFloat(form.qty) || 0;
+                const basePriceVal = parseFloat(form.price) || 0;
+                const gstVal = parseFloat(form.gst) || 0;
+                const freightVal = parseFloat(form.freight) || 0;
+                const landedPrice = quantityVal > 0 
+                  ? (basePriceVal * (1 + gstVal / 100)) + (freightVal / quantityVal)
+                  : basePriceVal;
+                return (
+                  <div style={{ fontSize: 11, background: COLORS.bg + "44", padding: 8, borderRadius: 4, marginBottom: 12, border: `1px solid ${COLORS.border}33`, color: COLORS.muted }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                      <span>Base Total Value:</span>
+                      <span style={{ color: COLORS.text, fontWeight: 500 }}>₹{(quantityVal * basePriceVal).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    {(gstVal > 0 || freightVal > 0) && (
+                      <div style={{ display: "flex", justifyContent: "space-between", color: COLORS.teal, fontWeight: 600, borderTop: `1px solid ${COLORS.border}33`, paddingTop: 4, marginTop: 4 }}>
+                        <span>Landed Cost (with Tax & Freight):</span>
+                        <span>₹{landedPrice.toFixed(2)} / {form.unit}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Input label="Expiry Date" type="date" value={form.expiry_date} onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))} />
+                <Input label="Min Alert Level" type="number" step="0.01" value={form.min_alert_qty} onChange={(e) => setForm((f) => ({ ...f, min_alert_qty: e.target.value }))} placeholder="e.g. 5.0" />
+              </div>
+              <Input label="Date received" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+              <Btn onClick={add} style={{ width: "100%", marginTop: 4 }}>Add to Store</Btn>
+            </div>
+          )}
+          {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 8, textAlign: "center" }}>{msg}</p>}
+          </Card>
+
+          </div>
+
+        </div>
   );
 }
