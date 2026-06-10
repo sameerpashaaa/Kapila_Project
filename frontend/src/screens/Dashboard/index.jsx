@@ -293,7 +293,7 @@ export default function Dashboard() {
                 style={{ 
                   display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px",
                   ...(isFeatured ? {
-                    background: `linear-gradient(135deg, ${THEME.brand} 0%, #4338CA 100%)`,
+                    background: `linear-gradient(135deg, ${THEME.brand} 0%, ${THEME.brandDark} 100%)`,
                     color: "#fff",
                     border: "none",
                   } : {})

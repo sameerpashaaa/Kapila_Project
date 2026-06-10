@@ -1,8 +1,8 @@
 export const COLORS = {
-  // Primary — Indigo (replaces emerald green)
-  brand:      "#4F46E5",   // Indigo — primary actions, active nav
-  brandDark:  "#4338CA",   // Darker indigo for hover states
-  brandLight: "#EEF2FF",   // Very light indigo — hover backgrounds, focus rings
+  // Primary — Slate/Grey (replaces bright indigo)
+  brand:      "#475569",   // Slate-600 — primary actions, active nav
+  brandDark:  "#334155",   // Slate-700 — hover states
+  brandLight: "#F1F5F9",   // Slate-100 — hover backgrounds, focus rings
   
   // Semantic states
   success:    "#10b981",   // Emerald — positive states (keep)
@@ -20,19 +20,19 @@ export const COLORS = {
   border:     "var(--color-border)",
   
   // Chart palette
-  chart1:     "#4F46E5",   // Indigo
-  chart2:     "#8B5CF6",   // Violet
-  chart3:     "#A78BFA",   // Light violet
-  chart4:     "#C4B5FD",   // Lavender
-  chart5:     "#10b981",   // Emerald accent
+  chart1:     "#475569",   // Slate-600
+  chart2:     "#64748b",   // Slate-500
+  chart3:     "#94a3b8",   // Slate-400
+  chart4:     "#cbd5e1",   // Slate-300
+  chart5:     "#e2e8f0",   // Slate-200
   
   // Legacy aliases
-  accent:     "#4F46E5",
-  accentDim:  "#4338CA",
+  accent:     "#475569",
+  accentDim:  "#334155",
   coral:      "#ef4444",
   teal:       "#10b981",
   purple:     "#8b5cf6",
-  primary:    "#4F46E5",
+  primary:    "#475569",
   neutral:    "#64748b",
   card:       "var(--color-bg-card)",
 };
@@ -65,8 +65,8 @@ export const globalCss = `
     --sidebar-border:     #E5E7EB;
     --sidebar-text:       #6B7280;
     --sidebar-text-hover: #1F2937;
-    --sidebar-active-bg:  #4F46E5;
-    --sidebar-active-text:#FFFFFF;
+    --sidebar-active-bg:  #F1F5F9;
+    --sidebar-active-text:#1F2937;
     --sidebar-hover-bg:   #F3F4F6;
     --sidebar-category:   #9CA3AF;
 
@@ -74,8 +74,8 @@ export const globalCss = `
     --color-bg-page:        #F5F7FA;
     --color-bg-card:        #FFFFFF;
     --color-bg-sidebar:     #FFFFFF;
-    --color-accent-primary: #4F46E5;
-    --color-accent-primary-light: #EEF2FF;
+    --color-accent-primary: #475569;
+    --color-accent-primary-light: #F1F5F9;
     --color-accent-green:   #10B981;
     --color-accent-green-light: #ECFDF5;
     --color-accent-amber:   #F59E0B;

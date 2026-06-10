@@ -156,7 +156,7 @@ function Inner() {
             flexShrink: 0
           }}>
             <div style={{
-              width: 32, height: 32, borderRadius: 9, background: "#4F46E5",
+              width: 32, height: 32, borderRadius: 9, background: "var(--color-accent-primary)",
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
             }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -171,7 +171,7 @@ function Inner() {
 
           {/* User Profile */}
           <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid var(--sidebar-border)" }}>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#4F46E5" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--color-accent-primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "var(--color-accent-primary)" }}>
               K
             </div>
             <div>
