@@ -2,14 +2,15 @@ const router = require("express").Router();
 const ctrl = require("../controllers/purchaseOrderController");
 const { validate } = require("../middleware/validate");
 const paginate = require("../middleware/paginate");
+const { requirePermission, requirePermissionForPurchaseOrderUpdate } = require("../middleware/authorize");
 
 const sorts = ["po_number", "date", "status", "total_amount", "created_at"];
 
-router.get("/", paginate(sorts), ctrl.list);
-router.get("/:id", ctrl.getOne);
-router.post("/", validate("purchase_order"), ctrl.create);
-router.post("/auto-draft", ctrl.createAutoDraft);
-router.patch("/:id", validate("purchase_order"), ctrl.update);
-router.delete("/:id", ctrl.remove);
+router.get("/", requirePermission("purchase_orders.view"), paginate(sorts), ctrl.list);
+router.get("/:id", requirePermission("purchase_orders.view"), ctrl.getOne);
+router.post("/", requirePermission("purchase_orders.create"), validate("purchase_order"), ctrl.create);
+router.post("/auto-draft", requirePermission("purchase_orders.create"), ctrl.createAutoDraft);
+router.patch("/:id", requirePermissionForPurchaseOrderUpdate, validate("purchase_order"), ctrl.update);
+router.delete("/:id", requirePermission("purchase_orders.delete"), ctrl.remove);
 
 module.exports = router;

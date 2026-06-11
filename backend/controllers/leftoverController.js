@@ -1,4 +1,5 @@
 const db = require("../db");
+const { applyDepartmentScope, assertDepartmentAccess } = require("../services/permissionService");
 
 // GET /api/leftovers
 // Query params: dept, date_from, date_to, q, page, limit, sort, order
@@ -14,8 +15,12 @@ async function list(req, res, next) {
       if (q)         qb.whereRaw("search_vec @@ plainto_tsquery('english', ?)", [q]);
     };
 
-    const [{ count }] = await db("leftovers").modify(filter).count("id as count");
-    const rows = await db("leftovers").modify(filter)
+    const countQuery = db("leftovers").modify(filter);
+    await applyDepartmentScope(countQuery, req.user, "dept");
+    const [{ count }] = await countQuery.count("id as count");
+    const listQuery = db("leftovers").modify(filter);
+    await applyDepartmentScope(listQuery, req.user, "dept");
+    const rows = await listQuery
       .select("*").orderBy(sort, order).offset(offset).limit(limit);
 
     res.json({ success: true, data: rows, total: parseInt(count), page: req.pagination.page, limit });
@@ -25,6 +30,7 @@ async function list(req, res, next) {
 // POST /api/leftovers
 async function create(req, res, next) {
   try {
+    await assertDepartmentAccess(req.user, req.body.dept);
     const [row] = await db("leftovers")
       .insert({ ...req.body, carried_forward: true }).returning("*");
     res.status(201).json({ success: true, data: row });

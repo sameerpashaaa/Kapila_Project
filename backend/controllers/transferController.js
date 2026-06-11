@@ -1,4 +1,5 @@
 const db = require("../db");
+const { getDepartmentNames } = require("../services/permissionService");
 
 async function generateTransferNumber(dateStr) {
   const formatted = dateStr.replace(/-/g, "");
@@ -13,11 +14,24 @@ async function list(req, res, next) {
     const { status, from_location, to_location, q } = req.query;
     const { offset, limit, sort, order } = req.pagination;
 
+    const deptNames = !req.user.isAdmin ? await getDepartmentNames(req.user) : null;
+
     const filter = (qb) => {
       if (status)        qb.where("status", status);
       if (from_location) qb.where("from_location", from_location);
       if (to_location)   qb.where("to_location", to_location);
       if (q)             qb.whereILike("transfer_number", `%${q}%`);
+
+      if (!req.user.isAdmin) {
+        if (deptNames && deptNames.length) {
+          qb.where((inner) => {
+            inner.whereIn("from_location", deptNames)
+                 .orWhereIn("to_location", deptNames);
+          });
+        } else {
+          qb.whereRaw("1 = 0");
+        }
+      }
     };
 
     const [{ count }] = await db("stock_transfers").modify(filter).count("id as count");
@@ -37,6 +51,15 @@ async function getOne(req, res, next) {
     const transfer = await db("stock_transfers").where("id", req.params.id).first();
     if (!transfer) return res.status(404).json({ success: false, error: "Transfer not found." });
 
+    if (!req.user.isAdmin) {
+      const deptNames = await getDepartmentNames(req.user);
+      const hasFrom = deptNames.some(d => d.toLowerCase() === transfer.from_location.toLowerCase());
+      const hasTo = deptNames.some(d => d.toLowerCase() === transfer.to_location.toLowerCase());
+      if (!hasFrom && !hasTo) {
+        return res.status(403).json({ success: false, error: "Access denied to this transfer." });
+      }
+    }
+
     const items = await db("stock_transfer_items").where("transfer_id", req.params.id).orderBy("id");
     res.json({ success: true, data: { ...transfer, items } });
   } catch (err) { next(err); }
@@ -49,6 +72,15 @@ async function create(req, res, next) {
 
     if (!items || items.length === 0)
       return res.status(400).json({ success: false, error: "At least one item required." });
+
+    if (!req.user.isAdmin) {
+      const deptNames = await getDepartmentNames(req.user);
+      const hasFrom = deptNames.some(d => d.toLowerCase() === (from_location || "Store").toLowerCase());
+      const hasTo = deptNames.some(d => d.toLowerCase() === to_location.toLowerCase());
+      if (!hasFrom && !hasTo) {
+        return res.status(403).json({ success: false, error: "Access denied: you must be assigned to either the source or destination department." });
+      }
+    }
 
     const transfer_number = await generateTransferNumber(date);
 
@@ -81,6 +113,16 @@ async function accept(req, res, next) {
     const { accepted_by } = req.body;
     const transfer = await db("stock_transfers").where("id", req.params.id).first();
     if (!transfer) return res.status(404).json({ success: false, error: "Transfer not found." });
+
+    if (!req.user.isAdmin) {
+      const deptNames = await getDepartmentNames(req.user);
+      const hasFrom = deptNames.some(d => d.toLowerCase() === transfer.from_location.toLowerCase());
+      const hasTo = deptNames.some(d => d.toLowerCase() === transfer.to_location.toLowerCase());
+      if (!hasFrom && !hasTo) {
+        return res.status(403).json({ success: false, error: "Access denied to this transfer." });
+      }
+    }
+
     if (transfer.status !== "Pending")
       return res.status(400).json({ success: false, error: `Transfer is already ${transfer.status}.` });
 
@@ -132,6 +174,16 @@ async function reject(req, res, next) {
     const { accepted_by, remarks } = req.body;
     const transfer = await db("stock_transfers").where("id", req.params.id).first();
     if (!transfer) return res.status(404).json({ success: false, error: "Transfer not found." });
+
+    if (!req.user.isAdmin) {
+      const deptNames = await getDepartmentNames(req.user);
+      const hasFrom = deptNames.some(d => d.toLowerCase() === transfer.from_location.toLowerCase());
+      const hasTo = deptNames.some(d => d.toLowerCase() === transfer.to_location.toLowerCase());
+      if (!hasFrom && !hasTo) {
+        return res.status(403).json({ success: false, error: "Access denied to this transfer." });
+      }
+    }
+
     if (transfer.status !== "Pending")
       return res.status(400).json({ success: false, error: `Transfer is already ${transfer.status}.` });
 

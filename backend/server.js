@@ -1,13 +1,30 @@
 require("dotenv").config();
 const express      = require("express");
 const cors         = require("cors");
+const cookieParser = require("cookie-parser");
+const helmet       = require("helmet");
 const errorHandler = require("./middleware/errorHandler");
+const { authenticate } = require("./middleware/auth");
 const { checkOllamaHealth } = require("./services/localAI");
 
 const app = express();
-app.use(cors());
+app.use(helmet());
+app.use(cors({
+  origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+  credentials: true,
+}));
+app.use(cookieParser());
 app.use(express.json());
 
+app.use("/api/auth", require("./routes/auth"));
+app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+app.use("/api", authenticate);
+
+app.use("/api/users",     require("./routes/users"));
+app.use("/api/roles",     require("./routes/roles"));
+app.use("/api/permissions", require("./routes/permissions"));
+app.use("/api/audit-logs", require("./routes/auditLogs"));
 app.use("/api/stock",      require("./routes/stock"));
 app.use("/api/indents",    require("./routes/indents"));
 app.use("/api/issuances",  require("./routes/issuances"));
@@ -24,8 +41,6 @@ app.use("/api/transfers",       require("./routes/transfers"));
 app.use("/api/reorder-points",  require("./routes/reorderPoints"));
 app.use("/api/approved-delivery", require("./routes/approvedDelivery"));
 app.use("/api",                 require("./routes/recipes"));
-
-app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // Local AI health check — tells the frontend if Ollama is up and model loaded
 app.get("/api/ai-health", async (req, res) => {

@@ -112,3 +112,33 @@ export const approvedDelivery = {
   // JSON commit after user review
   commit: (body)     => api.post("/approved-delivery/commit", body),
 };
+
+export const auth = {
+  login: (body) => api.post("/auth/login", body),
+  me: () => api.get("/auth/me"),
+  refresh: () => api.post("/auth/refresh"),
+  logout: () => api.post("/auth/logout"),
+  changePassword: (body) => api.post("/auth/change-password", body),
+};
+
+export const users = {
+  list: (params) => api.get("/users", params),
+  getOne: (id) => api.get(`/users/${id}`),
+  create: (body) => api.post("/users", body),
+  update: (id, body) => api.patch(`/users/${id}`, body),
+  setActive: (id, is_active) => api.patch(`/users/${id}/activate`, { is_active }),
+  resetPassword: (id, temporary_password) => api.post(`/users/${id}/reset-password`, { temporary_password }),
+  activity: (id) => api.get(`/users/${id}/activity`),
+};
+
+export const roles = {
+  list: () => api.get("/roles"),
+};
+
+export const permissions = {
+  list: () => api.get("/permissions"),
+};
+
+export const auditLogs = {
+  list: (params) => api.get("/audit-logs", params),
+};

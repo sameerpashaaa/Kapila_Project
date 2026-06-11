@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import kapilaLogo from "./assets/kapila-logo.png";
 import { globalCss, COLORS } from "./styles/colors";
 import { AppProvider, useAppContext } from "./context/AppContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import ProtectedScreen from "./components/ProtectedScreen";
 import { 
   LayoutDashboard, Package, Factory, Building2, Receipt, Inbox, Bell, 
   Scale, ArrowLeftRight, CalendarRange, ClipboardList, Send, ChefHat, 
-  ArchiveRestore, Trash2, Database, ChevronRight, Search
+  ArchiveRestore, Trash2, Search, Users, ShieldCheck, LogOut
 } from "lucide-react";
 
 import Dashboard      from "./screens/Dashboard";
@@ -23,54 +25,69 @@ import TransfersScreen       from "./screens/Transfers";
 import ReorderPointsScreen   from "./screens/ReorderPoints";
 import MenuPlannerScreen     from "./screens/MenuPlanner";
 import WasteAnalyticsScreen   from "./screens/WasteAnalytics";
+import UserManagementScreen from "./screens/UserManagement";
+import AuditLogsScreen from "./screens/AuditLogs";
+import LoginScreen from "./screens/Login";
 
 const NAV_CATEGORIES = [
   {
     title: "General",
     items: [
-      { id: "dashboard",    label: "Dashboard",       icon: <LayoutDashboard size={16} /> },
+      { id: "dashboard",    label: "Dashboard",       permission: "dashboard.view", icon: <LayoutDashboard size={16} /> },
     ]
   },
   {
     title: "Master Data",
     items: [
-      { id: "stock",        label: "Stock Master",    icon: <Package size={16} /> },
-      { id: "suppliers",    label: "Suppliers Master", icon: <Factory size={16} /> },
-      { id: "departments",  label: "Departments",     icon: <Building2 size={16} /> },
+      { id: "stock",        label: "Stock Master",    permission: "stock.view", icon: <Package size={16} /> },
+      { id: "suppliers",    label: "Suppliers Master", permission: "suppliers.view", icon: <Factory size={16} /> },
+      { id: "departments",  label: "Departments",     permission: "departments.view", icon: <Building2 size={16} /> },
     ]
   },
   {
     title: "Procurement",
     items: [
-      { id: "pos",          label: "Purchase Orders", icon: <Receipt size={16} /> },
-      { id: "grn",          label: "Goods Receipt",   icon: <Inbox size={16} /> },
-      { id: "reorder",      label: "Reorder Points",  icon: <Bell size={16} /> },
+      { id: "pos",          label: "Purchase Orders", permission: "purchase_orders.view", icon: <Receipt size={16} /> },
+      { id: "grn",          label: "Goods Receipt",   permission: "grn.view", icon: <Inbox size={16} /> },
+      { id: "reorder",      label: "Reorder Points",  permission: "reorder_points.view", icon: <Bell size={16} /> },
     ]
   },
   {
     title: "Store Management",
     items: [
-      { id: "reconcile",    label: "Reconciliation",  icon: <Scale size={16} /> },
-      { id: "transfers",    label: "Transfers",       icon: <ArrowLeftRight size={16} /> },
+      { id: "reconcile",    label: "Reconciliation",  permission: "reconciliation.view", icon: <Scale size={16} /> },
+      { id: "transfers",    label: "Transfers",       permission: "transfers.view", icon: <ArrowLeftRight size={16} /> },
     ]
   },
   {
     title: "Kitchen & Depts",
     items: [
-      { id: "menu_planner", label: "Menu Planner",    icon: <CalendarRange size={16} /> },
-      { id: "indent",       label: "Indent Material", icon: <ClipboardList size={16} /> },
-      { id: "issuance",     label: "Store Issuance",  icon: <Send size={16} /> },
-      { id: "production",   label: "Daily Production",icon: <ChefHat size={16} /> },
-      { id: "leftover",     label: "Leftovers Logs",  icon: <ArchiveRestore size={16} /> },
-      { id: "waste_analytics", label: "Waste Analytics", icon: <Trash2 size={16} /> },
+      { id: "menu_planner", label: "Menu Planner",    permission: "menu.view", icon: <CalendarRange size={16} /> },
+      { id: "indent",       label: "Indent Material", permission: "indents.view", icon: <ClipboardList size={16} /> },
+      { id: "issuance",     label: "Store Issuance",  permission: "issuances.view", icon: <Send size={16} /> },
+      { id: "production",   label: "Daily Production",permission: "production.view", icon: <ChefHat size={16} /> },
+      { id: "leftover",     label: "Leftovers Logs",  permission: "leftovers.view", icon: <ArchiveRestore size={16} /> },
+      { id: "waste_analytics", label: "Waste Analytics", permission: "waste_analytics.view", icon: <Trash2 size={16} /> },
+    ]
+  },
+  {
+    title: "Administration",
+    items: [
+      { id: "users", label: "User Management", permission: "users.view", icon: <Users size={16} /> },
+      { id: "audit_logs", label: "Audit Logs", permission: "audit_logs.view", icon: <ShieldCheck size={16} /> },
     ]
   }
 ];
+
+const SCREEN_PERMISSIONS = Object.fromEntries(
+  NAV_CATEGORIES.flatMap((cat) => cat.items.map((item) => [item.id, item.permission]))
+);
 
 const SIDEBAR_WIDTH = 230;
 
 function Inner() {
   const { currentScreen: screen, setCurrentScreen: setScreen, refreshStockNames, stocks = [] } = useAppContext();
+  const { user, roles, loading, isAuthenticated, hasPermission, logout } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -79,7 +96,20 @@ function Inner() {
     return item.min_alert_qty !== null ? item.remaining <= item.min_alert_qty : pct < 25;
   }).length;
 
-  useEffect(() => { refreshStockNames(); }, []);
+  const visibleNavCategories = NAV_CATEGORIES
+    .map((cat) => ({ ...cat, items: cat.items.filter((item) => hasPermission(item.permission)) }))
+    .filter((cat) => cat.items.length > 0);
+  const visibleNavItems = visibleNavCategories.flatMap((cat) => cat.items);
+
+  useEffect(() => {
+    if (isAuthenticated) refreshStockNames();
+  }, [isAuthenticated, refreshStockNames]);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated && visibleNavItems.length && !hasPermission(SCREEN_PERMISSIONS[screen])) {
+      setScreen(visibleNavItems[0].id);
+    }
+  }, [loading, isAuthenticated, visibleNavItems, screen, hasPermission, setScreen]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -92,21 +122,23 @@ function Inner() {
   }, []);
 
   const screens = {
-    dashboard:  <Dashboard />,
-    stock:      <StockScreen />,
-    suppliers:  <SuppliersScreen />,
-    departments: <DepartmentsScreen />,
-    pos:        <PurchaseOrdersScreen />,
-    grn:        <GoodsReceiptScreen />,
-    reorder:    <ReorderPointsScreen />,
-    reconcile:  <ReconciliationScreen />,
-    transfers:  <TransfersScreen />,
-    indent:     <IndentScreen />,
-    issuance:   <IssuanceScreen />,
-    production: <ProductionScreen />,
-    leftover:   <LeftoverScreen />,
-    menu_planner: <MenuPlannerScreen />,
-    waste_analytics: <WasteAnalyticsScreen />,
+    dashboard:  <ProtectedScreen permission="dashboard.view"><Dashboard /></ProtectedScreen>,
+    stock:      <ProtectedScreen permission="stock.view"><StockScreen /></ProtectedScreen>,
+    suppliers:  <ProtectedScreen permission="suppliers.view"><SuppliersScreen /></ProtectedScreen>,
+    departments: <ProtectedScreen permission="departments.view"><DepartmentsScreen /></ProtectedScreen>,
+    pos:        <ProtectedScreen permission="purchase_orders.view"><PurchaseOrdersScreen /></ProtectedScreen>,
+    grn:        <ProtectedScreen permission="grn.view"><GoodsReceiptScreen /></ProtectedScreen>,
+    reorder:    <ProtectedScreen permission="reorder_points.view"><ReorderPointsScreen /></ProtectedScreen>,
+    reconcile:  <ProtectedScreen permission="reconciliation.view"><ReconciliationScreen /></ProtectedScreen>,
+    transfers:  <ProtectedScreen permission="transfers.view"><TransfersScreen /></ProtectedScreen>,
+    indent:     <ProtectedScreen permission="indents.view"><IndentScreen /></ProtectedScreen>,
+    issuance:   <ProtectedScreen permission="issuances.view"><IssuanceScreen /></ProtectedScreen>,
+    production: <ProtectedScreen permission="production.view"><ProductionScreen /></ProtectedScreen>,
+    leftover:   <ProtectedScreen permission="leftovers.view"><LeftoverScreen /></ProtectedScreen>,
+    menu_planner: <ProtectedScreen permission="menu.view"><MenuPlannerScreen /></ProtectedScreen>,
+    waste_analytics: <ProtectedScreen permission="waste_analytics.view"><WasteAnalyticsScreen /></ProtectedScreen>,
+    users: <ProtectedScreen permission="users.view"><UserManagementScreen /></ProtectedScreen>,
+    audit_logs: <ProtectedScreen permission="audit_logs.view"><AuditLogsScreen /></ProtectedScreen>,
   };
 
   const handleNavigation = (id) => {
@@ -114,7 +146,16 @@ function Inner() {
     if (isMobile) setIsSidebarOpen(false);
   };
 
-  const activeNavItem = NAV_CATEGORIES.flatMap(c => c.items).find(n => n.id === screen);
+  const activeNavItem = visibleNavItems.find(n => n.id === screen);
+  const primaryRole = roles[0]?.name || "User";
+
+  if (loading) {
+    return <div style={{ height: "100vh", display: "grid", placeItems: "center", color: COLORS.text }}>Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
 
   return (
     <>
@@ -178,14 +219,14 @@ function Inner() {
               K
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#1F2937" }}>Kapila Admin</div>
-              <div style={{ fontSize: 11, color: "#9CA3AF" }}>Administrator</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1F2937" }}>{user?.name || "Kapila User"}</div>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>{primaryRole}</div>
             </div>
           </div>
 
           {/* Nav */}
           <nav style={{ flex: 1, padding: "12px 10px", display: "flex", flexDirection: "column", gap: 4, overflowY: "auto", scrollbarWidth: "none" }}>
-            {NAV_CATEGORIES.map((cat) => (
+            {visibleNavCategories.map((cat) => (
               <div key={cat.title} style={{ marginBottom: 4 }}>
                 <div style={{
                   fontSize: 10, fontWeight: 700, color: "var(--sidebar-category)",
@@ -302,6 +343,9 @@ function Inner() {
                 <Bell size={16} color="#6B7280" />
                 <div style={{ position: "absolute", top: 6, right: 6, width: 6, height: 6, borderRadius: "50%", background: COLORS.danger }}></div>
               </div>
+              <button onClick={logout} title="Logout" style={{ width: 32, height: 32, borderRadius: "50%", background: "#F3F4F6", border: "none", display: "grid", placeItems: "center" }}>
+                <LogOut size={15} color="#6B7280" />
+              </button>
               <div style={{
                 width: 32, height: 32, borderRadius: "50%",
                 background: COLORS.brand + "20",
@@ -331,8 +375,10 @@ function Inner() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <Inner />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <Inner />
+      </AppProvider>
+    </AuthProvider>
   );
 }

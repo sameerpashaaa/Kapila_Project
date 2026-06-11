@@ -2,8 +2,9 @@ const router = require("express").Router();
 const ctrl   = require("../controllers/issuanceController");
 const { validate } = require("../middleware/validate");
 const paginate = require("../middleware/paginate");
+const { requirePermission } = require("../middleware/authorize");
 
-router.get("/",  paginate(["date", "created_at", "dept"]), ctrl.list);
-router.post("/", validate("issuance"), ctrl.create);
+router.get("/",  requirePermission("issuances.view"), paginate(["date", "created_at", "dept"]), ctrl.list);
+router.post("/", requirePermission("issuances.create"), validate("issuance"), ctrl.create);
 
 module.exports = router;

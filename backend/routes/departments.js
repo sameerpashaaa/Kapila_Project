@@ -1,11 +1,12 @@
 const router = require("express").Router();
 const ctrl = require("../controllers/departmentController");
 const { validate } = require("../middleware/validate");
+const { requirePermission, requireAnyPermission } = require("../middleware/authorize");
 
-router.get("/", ctrl.list);
-router.get("/items", ctrl.getDepartmentItems);
-router.post("/", validate("department"), ctrl.create);
-router.patch("/:id", validate("department"), ctrl.update);
-router.delete("/:id", ctrl.remove);
+router.get("/", requirePermission("departments.view"), ctrl.list);
+router.get("/items", requireAnyPermission(["departments.view", "indents.create"]), ctrl.getDepartmentItems);
+router.post("/", requirePermission("departments.create"), validate("department"), ctrl.create);
+router.patch("/:id", requirePermission("departments.edit"), validate("department"), ctrl.update);
+router.delete("/:id", requirePermission("departments.delete"), ctrl.remove);
 
 module.exports = router;

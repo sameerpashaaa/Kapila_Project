@@ -1,8 +1,9 @@
 const router = require("express").Router();
 const ctrl   = require("../controllers/scanController");
+const { requirePermission } = require("../middleware/authorize");
 
-router.post("/indent", ctrl.scanIndent);
-router.post("/purchase", ctrl.scanPurchase);
-router.post("/text", ctrl.scanText);
+router.post("/indent", requirePermission("scan.indent"), ctrl.scanIndent);
+router.post("/purchase", requirePermission("scan.purchase"), ctrl.scanPurchase);
+router.post("/text", requirePermission("scan.text"), ctrl.scanText);
 
 module.exports = router;

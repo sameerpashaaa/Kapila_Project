@@ -1,9 +1,15 @@
 const db = require("../db");
+const { getDepartmentNames } = require("../services/permissionService");
 
 // GET /api/departments
 async function list(req, res, next) {
   try {
-    const rows = await db("departments").select("*").orderBy("name", "asc");
+    let query = db("departments").select("*").orderBy("name", "asc");
+    if (!req.user.isAdmin) {
+      const deptNames = await getDepartmentNames(req.user);
+      query.whereIn("name", deptNames);
+    }
+    const rows = await query;
     res.json({ success: true, data: rows });
   } catch (err) {
     next(err);

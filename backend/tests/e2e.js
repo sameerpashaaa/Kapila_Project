@@ -8,6 +8,17 @@ const errorHandler = require("../middleware/errorHandler");
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  req.user = {
+    id: 1,
+    name: "Test Admin",
+    email: "admin@kapila.local",
+    isAdmin: true,
+    roles: [{ id: 1, key: "admin", name: "Admin" }],
+    permissions: new Set(),
+  };
+  next();
+});
 app.use("/api/stock",      require("../routes/stock"));
 app.use("/api/suppliers",       require("../routes/suppliers"));
 app.use("/api/departments",     require("../routes/departments"));

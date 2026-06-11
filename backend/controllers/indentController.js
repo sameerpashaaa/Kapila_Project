@@ -1,4 +1,5 @@
 const db = require("../db");
+const { applyDepartmentScope, assertDepartmentAccess } = require("../services/permissionService");
 
 // GET /api/indents
 // Query params: dept, status, date_from, date_to, q (search items), page, limit, sort, order
@@ -18,6 +19,7 @@ async function list(req, res, next) {
           .whereRaw("search_vec @@ plainto_tsquery('english', ?)", [q]));
       }
     });
+    await applyDepartmentScope(baseQuery, req.user, "dept");
 
     const [{ count }] = await baseQuery.clone().count("indents.id as count");
     const indents = await baseQuery.clone()
@@ -46,6 +48,7 @@ async function create(req, res, next) {
     if (!deptExists) {
       return res.status(400).json({ success: false, error: `Department '${dept}' does not exist.` });
     }
+    await assertDepartmentAccess(req.user, deptExists.name);
 
     const [indent] = await db("indents").insert({ dept: deptExists.name, date, status: "pending" }).returning("*");
     const rows = items.map((it) => ({ indent_id: indent.id, name: it.name, qty: it.qty, unit: it.unit, item_code: it.item_code }));
@@ -58,6 +61,9 @@ async function create(req, res, next) {
 async function updateStatus(req, res, next) {
   try {
     const { status } = req.body;
+    const existing = await db("indents").where("id", req.params.id).first();
+    if (!existing) return res.status(404).json({ success: false, error: "Not found" });
+    await assertDepartmentAccess(req.user, existing.dept);
     const [row] = await db("indents").where("id", req.params.id).update({ status }).returning("*");
     if (!row) return res.status(404).json({ success: false, error: "Not found" });
     res.json({ success: true, data: row });

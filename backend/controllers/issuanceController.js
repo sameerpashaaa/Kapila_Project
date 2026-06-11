@@ -1,4 +1,5 @@
 const db = require("../db");
+const { applyDepartmentScope, assertDepartmentAccess } = require("../services/permissionService");
 
 // GET /api/issuances
 // Query params: dept, date_from, date_to, scanned, q, page, limit, sort, order
@@ -19,8 +20,12 @@ async function list(req, res, next) {
       }
     };
 
-    const [{ count }] = await db("issuances").modify(filter).count("issuances.id as count");
-    const issuances = await db("issuances").modify(filter)
+    const countQuery = db("issuances").modify(filter);
+    await applyDepartmentScope(countQuery, req.user, "issuances.dept");
+    const [{ count }] = await countQuery.count("issuances.id as count");
+    const listQuery = db("issuances").modify(filter);
+    await applyDepartmentScope(listQuery, req.user, "issuances.dept");
+    const issuances = await listQuery
       .select("issuances.*")
       .orderBy(`issuances.${sort}`, order)
       .offset(offset).limit(limit);
@@ -46,6 +51,7 @@ async function create(req, res, next) {
     if (!deptExists) {
       return res.status(400).json({ success: false, error: `Department '${dept}' does not exist.` });
     }
+    await assertDepartmentAccess(req.user, deptExists.name);
 
     const issuance = await db.transaction(async (trx) => {
       const [iss] = await trx("issuances")

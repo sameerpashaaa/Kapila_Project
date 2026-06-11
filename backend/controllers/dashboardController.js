@@ -1,40 +1,32 @@
 const db = require("../db");
+const { getDepartmentNames, assertDepartmentAccess } = require("../services/permissionService");
 
 // GET /api/dashboard?date=YYYY-MM-DD
 async function summary(req, res, next) {
   try {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const deptNames = !req.user.isAdmin ? await getDepartmentNames(req.user) : null;
 
-    const [
-      stockStats,
-      pendingIndents,
-      todayIssuances,
-      todayPlates,
-      todayLeftovers,
-      deptStats,
-      lowStock,
-      weeklyWaste,
-    ] = await Promise.all([
-      // Total stock items + low stock count
-      db("stock").select(
-        db.raw("COUNT(*) AS total"),
-        db.raw("COUNT(*) FILTER (WHERE remaining / NULLIF(qty, 0) < 0.25) AS low_stock")
-      ).first(),
+    const pendingIndentsQuery = db("indents").where("status", "pending").count("id as count");
+    const todayIssuancesQuery = db("issuances").where("date", date).count("id as count");
+    const todayPlatesQuery = db("production").where("date", date).sum("plates as total");
+    const todayLeftoversQuery = db("leftovers").where("date", date).count("id as count");
 
-      // Pending indents
-      db("indents").where("status", "pending").count("id as count").first(),
+    if (!req.user.isAdmin) {
+      if (deptNames && deptNames.length) {
+        pendingIndentsQuery.whereIn("dept", deptNames);
+        todayIssuancesQuery.whereIn("dept", deptNames);
+        todayPlatesQuery.whereIn("dept", deptNames);
+        todayLeftoversQuery.whereIn("dept", deptNames);
+      } else {
+        pendingIndentsQuery.whereRaw("1 = 0");
+        todayIssuancesQuery.whereRaw("1 = 0");
+        todayPlatesQuery.whereRaw("1 = 0");
+        todayLeftoversQuery.whereRaw("1 = 0");
+      }
+    }
 
-      // Today's issuances count
-      db("issuances").where("date", date).count("id as count").first(),
-
-      // Today's total plates
-      db("production").where("date", date).sum("plates as total").first(),
-
-      // Today's leftover entries
-      db("leftovers").where("date", date).count("id as count").first(),
-
-      // Per-dept: plates, issuances, leftovers, waste_rate
-      db.raw(`
+    let deptQueryText = `
         SELECT
           d.name                     AS dept,
           COALESCE(p.plates, 0)      AS total_plates,
@@ -54,18 +46,19 @@ async function summary(req, res, next) {
         LEFT JOIN (
           SELECT dept, SUM(qty) AS leftover_qty FROM leftovers GROUP BY dept
         ) l ON LOWER(l.dept) = LOWER(d.name)
-        ORDER BY d.name ASC
-      `),
+    `;
+    const queryParams = [];
+    if (!req.user.isAdmin) {
+      if (deptNames && deptNames.length) {
+        deptQueryText += ` WHERE LOWER(d.name) IN (${deptNames.map(() => "?").join(",")})`;
+        queryParams.push(...deptNames.map(d => d.toLowerCase()));
+      } else {
+        deptQueryText += ` WHERE 1 = 0`;
+      }
+    }
+    deptQueryText += ` ORDER BY d.name ASC`;
 
-      // Low stock items detail
-      db("stock")
-        .whereRaw("remaining / NULLIF(qty, 0) < 0.25")
-        .select("id", "name", "remaining", "qty", "unit",
-          db.raw("ROUND((remaining / NULLIF(qty, 0) * 100)::numeric, 1) AS pct"))
-        .orderBy("pct", "asc"),
-
-      // Weekly waste trend (last 7 days)
-      db.raw(`
+    let weeklyWasteQueryText = `
         SELECT
           p.date,
           SUM(p.plates) AS plates,
@@ -75,11 +68,51 @@ async function summary(req, res, next) {
             ELSE 0
           END AS waste_rate_pct
         FROM production p
-        LEFT JOIN leftovers l ON l.date = p.date
+        LEFT JOIN leftovers l ON l.date = p.date AND LOWER(l.dept) = LOWER(p.dept)
         WHERE p.date >= (DATE(?) - INTERVAL '6 days')::date
+    `;
+    const weeklyWasteParams = [date];
+    if (!req.user.isAdmin) {
+      if (deptNames && deptNames.length) {
+        weeklyWasteQueryText += ` AND LOWER(p.dept) IN (${deptNames.map(() => "?").join(",")})`;
+        weeklyWasteParams.push(...deptNames.map(d => d.toLowerCase()));
+      } else {
+        weeklyWasteQueryText += ` AND 1 = 0`;
+      }
+    }
+    weeklyWasteQueryText += `
         GROUP BY p.date
         ORDER BY p.date ASC
-      `, [date]),
+    `;
+
+    const [
+      stockStats,
+      pendingIndents,
+      todayIssuances,
+      todayPlates,
+      todayLeftovers,
+      deptStats,
+      lowStock,
+      weeklyWaste,
+    ] = await Promise.all([
+      db("stock").select(
+        db.raw("COUNT(*) AS total"),
+        db.raw("COUNT(*) FILTER (WHERE remaining <= COALESCE(min_alert_qty, qty * 0.25)) AS low_stock")
+      ).first(),
+
+      pendingIndentsQuery.first(),
+      todayIssuancesQuery.first(),
+      todayPlatesQuery.first(),
+      todayLeftoversQuery.first(),
+      db.raw(deptQueryText, queryParams),
+
+      db("stock")
+        .whereRaw("remaining <= COALESCE(min_alert_qty, qty * 0.25)")
+        .select("id", "name", "remaining", "qty", "unit",
+          db.raw("ROUND((remaining / NULLIF(qty, 0) * 100)::numeric, 1) AS pct"))
+        .orderBy("pct", "asc"),
+
+      db.raw(weeklyWasteQueryText, weeklyWasteParams),
     ]);
 
     res.json({
@@ -109,32 +142,58 @@ async function analytics(req, res, next) {
     const from = date_from || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const to   = date_to   || new Date().toISOString().slice(0, 10);
 
+    if (dept) {
+      await assertDepartmentAccess(req.user, dept);
+    }
+
+    const deptNames = !req.user.isAdmin ? await getDepartmentNames(req.user) : null;
+
     const filter = (qb, table) => {
       qb.whereBetween(`${table}.date`, [from, to]);
-      if (dept) qb.where(`${table}.dept`, dept);
+      if (dept) {
+        qb.whereRaw(`LOWER(${table}.dept) = LOWER(?)`, [dept]);
+      } else if (!req.user.isAdmin) {
+        if (deptNames && deptNames.length) {
+          qb.whereIn(`${table}.dept`, deptNames);
+        } else {
+          qb.whereRaw("1 = 0");
+        }
+      }
     };
 
-    const [consumption, production, topItems] = await Promise.all([
-      // Daily stock consumption (issued qty per day)
-      db.raw(`
+    let consumptionQueryText = `
         SELECT ii.name, ii.unit, SUM(ii.issued) AS total_issued, COUNT(DISTINCT i.date) AS days_issued
         FROM issuance_items ii
         JOIN issuances i ON i.id = ii.issuance_id
         WHERE i.date BETWEEN ? AND ?
-        ${dept ? "AND i.dept = ?" : ""}
+    `;
+    const consumptionParams = [from, to];
+    if (dept) {
+      consumptionQueryText += " AND LOWER(i.dept) = LOWER(?)";
+      consumptionParams.push(dept);
+    } else if (!req.user.isAdmin) {
+      if (deptNames && deptNames.length) {
+        consumptionQueryText += ` AND LOWER(i.dept) IN (${deptNames.map(() => "?").join(",")})`;
+        consumptionParams.push(...deptNames.map(d => d.toLowerCase()));
+      } else {
+        consumptionQueryText += " AND 1 = 0";
+      }
+    }
+    consumptionQueryText += `
         GROUP BY ii.name, ii.unit
         ORDER BY total_issued DESC
         LIMIT 20
-      `, dept ? [from, to, dept] : [from, to]),
+    `;
 
-      // Daily production trend
+    const [consumption, production, topItems] = await Promise.all([
+      db.raw(consumptionQueryText, consumptionParams),
+
       db("production")
         .modify((qb) => filter(qb, "production"))
         .select("date", db.raw("SUM(plates) AS plates"), "dept")
         .groupBy("date", "dept")
         .orderBy("date"),
 
-      // Top leftover items
       db("leftovers")
         .modify((qb) => filter(qb, "leftovers"))
         .select("item", db.raw("SUM(qty) AS total_qty"), "unit")

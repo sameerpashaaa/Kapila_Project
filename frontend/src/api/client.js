@@ -1,48 +1,79 @@
+import { clearAccessToken, getAccessToken, notifyUnauthorized, setAccessToken } from "./authToken";
+
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
-async function request(method, path, body, params) {
-  // Support both absolute URLs and relative path bases
+function absoluteUrl(path) {
   const absoluteBase = BASE.startsWith("http") ? BASE : window.location.origin + BASE;
-  const url = new URL(absoluteBase + path);
+  return new URL(absoluteBase + path);
+}
+
+async function parseJson(res) {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const errorText = await res.text();
+    throw new Error(`Server returned non-JSON response. Status: ${res.status}. ${errorText.slice(0, 100)}`);
+  }
+  return res.json();
+}
+
+async function refreshAccessToken() {
+  const res = await fetch(absoluteUrl("/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+  });
+  const json = await parseJson(res);
+  if (!json.success) throw new Error(json.error || "Session refresh failed");
+  setAccessToken(json.data.accessToken);
+  return json.data;
+}
+
+async function request(method, path, body, params, didRetry = false) {
+  const url = absoluteUrl(path);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
     });
   }
+
   const res = await fetch(url, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : {},
+    credentials: "include",
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const contentType = res.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) {
-    const errorText = await res.text();
-    throw new Error(`Server returned HTML/text instead of JSON. Status: ${res.status}. Details: ${errorText.slice(0, 80)}...`);
+  if (res.status === 401 && !didRetry && path !== "/auth/login" && path !== "/auth/refresh") {
+    try {
+      await refreshAccessToken();
+      return request(method, path, body, params, true);
+    } catch {
+      clearAccessToken();
+      notifyUnauthorized();
+    }
   }
 
-  const json = await res.json();
+  const json = await parseJson(res);
   if (!json.success) throw new Error(json.error || "Request failed");
   return json;
 }
 
 export const api = {
-  get:    (path, params) => request("GET",    path, null, params),
-  post:   (path, body)   => request("POST",   path, body),
-  patch:  (path, body)   => request("PATCH",  path, body),
-  delete: (path)         => request("DELETE", path),
+  get: (path, params) => request("GET", path, null, params),
+  post: (path, body) => request("POST", path, body),
+  patch: (path, body) => request("PATCH", path, body),
+  delete: (path) => request("DELETE", path),
 
-  // Multipart upload — bypasses JSON serialization
   postUpload: async (path, formData) => {
-    const absoluteBase = BASE.startsWith("http") ? BASE : window.location.origin + BASE;
-    const url = new URL(absoluteBase + path);
-    const res = await fetch(url, { method: "POST", body: formData }); // no Content-Type header — browser sets it with boundary
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      const errorText = await res.text();
-      throw new Error(`Server error ${res.status}: ${errorText.slice(0, 120)}`);
-    }
-    const json = await res.json();
+    const res = await fetch(absoluteUrl(path), {
+      method: "POST",
+      credentials: "include",
+      headers: getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {},
+      body: formData,
+    });
+    const json = await parseJson(res);
     if (!json.success) throw new Error(json.error || "Upload failed");
     return json;
   },
