@@ -12,6 +12,42 @@ import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
 import { useLocalSpeech } from "../../hooks/useLocalSpeech";
+import { Plus, Zap, Mic, History, Trash2, Printer, Search, Inbox } from "lucide-react";
+
+const WhatsAppIcon = ({ size = 15 }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" style={{ display: "inline-block", verticalAlign: "middle" }}>
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.459h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+  </svg>
+);
+
+const cleanDeptName = (name) => {
+  if (!name) return "";
+  return name.replace(/\s*\(.*?\)\s*/g, "").split(" - ")[0].split(" | ")[0].trim();
+};
+
+const formatDate = (dateStr) => {
+  try {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+const getStatusStyleAndText = (status) => {
+  const s = (status || "").toLowerCase();
+  if (s === "issued") {
+    return { bg: "#D1FAE5", color: "#065F46", text: "Issued" };
+  }
+  if (s === "pending") {
+    return { bg: "#FEF3C7", color: "#92400E", text: "Pending" };
+  }
+  return { bg: "#F3F4F6", color: "#6B7280", text: status.charAt(0).toUpperCase() + status.slice(1) };
+};
 
 const today = () => new Date().toISOString().slice(0, 10);
 const LIMIT = 20;
@@ -35,6 +71,7 @@ export default function IndentScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItems, setSelectedItems] = useState({});
   const [activeCategory, setActiveCategory] = useState("All");
+  const [historySearch, setHistorySearch] = useState("");
 
   const uniqueStockItems = [];
   const seenNames = new Set();
@@ -482,16 +519,26 @@ export default function IndentScreen() {
 
   return (
     <Section title="Indent Request" sub="Departments submit nightly material requirements">
-      <div style={{ display: "grid", gridTemplateColumns: "450px 1fr", gap: 20 }}>
-        {/* Form */}
-        <Card>
-          <p style={{ fontSize: 12, color: COLORS.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.06em" }}>New indent form</p>
+      <div className="indent-layout-grid">
+        {/* Left Panel - Form */}
+        <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "20px 24px" }}>
+          <p style={{ fontSize: "10px", fontWeight: 500, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: "16px" }}>NEW INDENT FORM</p>
           
-          <Select label="Department" value={form.dept} onChange={handleDeptChange}>
-            {deptsList.map((d) => <option key={d.id} value={d.name}>{d.name} ({d.code})</option>)}
-          </Select>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: "11px", color: "#6B7280", marginBottom: "4px", display: "block", fontWeight: 400 }}>
+              Department
+            </label>
+            <select className="indent-field" value={form.dept} onChange={handleDeptChange}>
+              {deptsList.map((d) => <option key={d.id} value={d.name}>{d.name} ({d.code})</option>)}
+            </select>
+          </div>
           
-          <Input label="Date needed" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: "11px", color: "#6B7280", marginBottom: "4px", display: "block", fontWeight: 400 }}>
+              Date needed
+            </label>
+            <input className="indent-field" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+          </div>
 
           {/* Leftovers Zero-Waste Alert Banner */}
           {deptLeftovers.length > 0 && (
@@ -565,33 +612,49 @@ export default function IndentScreen() {
             </div>
           )}
 
-          <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Items requested</p>
+          <p style={{ fontSize: "10px", fontWeight: 500, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase", marginTop: "14px", marginBottom: "8px" }}>ITEMS REQUESTED</p>
           
-          <div style={{ maxHeight: 280, overflowY: "auto", paddingRight: 4, marginBottom: 10 }}>
-            {form.items.map((item, idx) => {
-              const cleanName = item.name.toLowerCase().trim();
-              const avail = availableStock[cleanName];
-              const isStockCheckActive = item.name && avail !== undefined;
-              const isLowStock = isStockCheckActive && avail <= 5;
-              
-              return (
-                <div key={idx} style={{
-                  background: COLORS.bg + "88",
-                  border: `1px solid ${COLORS.border}88`,
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 10,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8
-                }}>
-                  {/* Top row: Item Name & Inline Stock badge */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <div style={{
+            background: "#F9FAFB",
+            border: "1px solid #E5E7EB",
+            borderRadius: "8px",
+            padding: "10px 14px",
+            minHeight: "72px",
+            marginTop: "14px",
+            maxHeight: "280px",
+            overflowY: "auto"
+          }}>
+            {form.items.length === 0 || (form.items.length === 1 && !form.items[0].name && !form.items[0].qty) ? (
+              <div style={{ fontSize: "12px", color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>
+                No items added yet
+              </div>
+            ) : (
+              form.items.map((item, idx) => {
+                const cleanName = item.name.toLowerCase().trim();
+                const avail = availableStock[cleanName];
+                const isStockCheckActive = item.name && avail !== undefined;
+                const isLowStock = isStockCheckActive && avail <= 5;
+                
+                return (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                    {/* SKU badge */}
+                    <span style={{
+                      background: "#EFF6FF",
+                      color: "#1D4ED8",
+                      padding: "2px 7px",
+                      borderRadius: "4px",
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      fontFamily: "monospace"
+                    }}>
+                      {item.item_code || "NEW"}
+                    </span>
+
+                    {/* Item name */}
                     {item.name ? (
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 600, color: COLORS.text, fontSize: 13 }}>{item.name}</span>
-                        {item.item_code && <span style={{ fontSize: 10, color: COLORS.muted }}>{item.item_code}</span>}
-                      </div>
+                      <span style={{ fontSize: "12px", color: "#111827", fontWeight: 500 }}>
+                        {item.name}
+                      </span>
                     ) : (
                       <input 
                         value={item.name} 
@@ -599,107 +662,100 @@ export default function IndentScreen() {
                         placeholder="Item name" 
                         list="stock-names" 
                         style={{ 
-                          width: "100%",
-                          background: COLORS.surface,
-                          border: `1px solid ${COLORS.border}`,
-                          color: COLORS.text,
-                          borderRadius: 6,
-                          padding: "6px 10px",
-                          fontSize: 12
+                          border: "1px solid #D1D5DB",
+                          borderRadius: "4px",
+                          padding: "2px 6px",
+                          fontSize: "12px",
+                          color: "#111827",
+                          background: "#fff",
+                          width: "120px"
                         }} 
                       />
                     )}
-                    {isStockCheckActive && (
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        background: isLowStock ? COLORS.coral + "22" : COLORS.success + "22",
-                        color: isLowStock ? COLORS.coral : COLORS.success,
-                        whiteSpace: "nowrap"
-                      }}>
-                        Avail: {avail} {item.unit}
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Bottom row: Qty, Unit, and Delete */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {/* Quantity */}
                     <input 
                       value={item.qty} 
                       onChange={(e) => updateItem(idx, "qty", e.target.value)} 
                       placeholder="Qty" 
                       type="number" 
                       style={{ 
-                        flex: 1,
-                        background: COLORS.surface,
-                        border: `1px solid ${COLORS.border}`,
-                        color: COLORS.text,
-                        borderRadius: 6,
-                        padding: "8px 12px",
-                        fontSize: 13
+                        border: "1px solid #D1D5DB",
+                        borderRadius: "4px",
+                        padding: "2px 6px",
+                        fontSize: "12px",
+                        color: "#6B7280",
+                        background: "#fff",
+                        width: "60px"
                       }} 
                     />
-                    <span style={{ fontSize: 13, color: COLORS.accent, fontWeight: 600, minWidth: 32, textAlign: "center" }}>
+                    <span style={{ fontSize: "12px", color: "#6B7280" }}>
                       {item.unit || "kg"}
                     </span>
-                    <Btn variant="danger" small onClick={() => removeRow(idx)} style={{ padding: "6px 10px" }}>✕</Btn>
+
+                    {isStockCheckActive && (
+                      <span style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        padding: "1px 4px",
+                        borderRadius: 3,
+                        background: isLowStock ? COLORS.coral + "22" : COLORS.success + "22",
+                        color: isLowStock ? COLORS.coral : COLORS.success,
+                        whiteSpace: "nowrap"
+                      }}>
+                        Avail: {avail}
+                      </span>
+                    )}
+
+                    {/* Trash icon */}
+                    <button 
+                      onClick={() => removeRow(idx)} 
+                      style={{ 
+                        background: "transparent", 
+                        border: "none", 
+                        cursor: "pointer", 
+                        marginLeft: "auto", 
+                        padding: "4px",
+                        display: "flex",
+                        alignItems: "center",
+                        color: "#EF4444"
+                      }}
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           <datalist id="stock-names">{filteredStockNames.map((n) => <option key={n} value={n} />)}</datalist>
 
-          <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-            <Btn onClick={addRow} small style={{ flex: "1 1 45%" }}>+ Add Item</Btn>
-            <Btn variant="ghost" onClick={() => { setSelectedItems({}); setShowModal(true); }} small style={{ flex: "1 1 45%", borderColor: COLORS.accent, color: COLORS.accent }}>⚡ Add Multi</Btn>
-            
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "12px" }}>
+            <button className="indent-btn" onClick={addRow}>
+              <Plus size={15} /> Add Item
+            </button>
+            <button className="indent-btn" onClick={() => { setSelectedItems({}); setShowModal(true); }}>
+              <Zap size={15} /> Add Multi
+            </button>
             <button 
               onClick={startListening} 
-              style={{
-                flex: "1 1 45%",
-                background: listening ? COLORS.coral : "transparent",
-                color: listening ? "#fff" : COLORS.text,
-                border: `1px solid ${listening ? COLORS.coral : COLORS.border}`,
-                borderRadius: 6,
-                padding: "8px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                transition: "all 0.2s"
-              }}
+              className="indent-btn"
+              style={listening ? { background: "#FEF2F2", borderColor: "#EF4444", color: "#EF4444" } : {}}
             >
-              <span style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: listening ? "#fff" : COLORS.coral,
-                display: "inline-block",
-                animation: listening ? "pulse 1.2s infinite ease-in-out" : "none"
-              }}/>
-              {listening ? "Recording... (tap to stop)" : "🎙️ Voice Input"}
+              <Mic size={15} color={listening ? "#EF4444" : "#374151"} />
+              {listening ? "Recording... (tap to stop)" : "Voice Input"}
+            </button>
+            <button className="indent-btn" onClick={smartAutofill}>
+              <History size={15} /> Autofill History
             </button>
 
             <button 
-              onClick={smartAutofill}
-              style={{
-                flex: "1 1 45%",
-                background: "transparent",
-                color: COLORS.accent,
-                border: `1px solid ${COLORS.accent}66`,
-                borderRadius: 6,
-                padding: "8px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-                fontWeight: 500
-              }}
+              className="submit-indent-btn" 
+              onClick={submit}
+              disabled={form.items.filter((i) => i.name && i.qty).length === 0}
             >
-              🔄 Autofill History
+              Submit Indent
             </button>
           </div>
 
@@ -709,19 +765,118 @@ export default function IndentScreen() {
               50% { transform: scale(1.15); opacity: 1; }
               100% { transform: scale(0.85); opacity: 0.5; }
             }
+            .indent-field {
+              width: 100%;
+              padding: 8px 12px;
+              border: 1px solid #D1D5DB;
+              border-radius: 8px;
+              background: #F9FAFB;
+              font-size: 13px;
+              outline: none;
+              box-sizing: border-box;
+              transition: border-color 0.15s, box-shadow 0.15s;
+            }
+            .indent-field:focus {
+              outline: 2px solid #1D3557;
+              outline-offset: 1px;
+            }
+            .indent-btn {
+              padding: 7px 10px;
+              border: 1px solid #D1D5DB;
+              border-radius: 8px;
+              background: transparent;
+              color: #374151;
+              font-size: 12px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 6px;
+              cursor: pointer;
+              transition: background 0.15s;
+            }
+            .indent-btn:hover {
+              background: #F3F4F6;
+            }
+            .submit-indent-btn {
+              grid-column: span 2;
+              padding: 10px;
+              background: #1D3557;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              font-size: 13px;
+              font-weight: 500;
+              cursor: pointer;
+              margin-top: 6px;
+              width: 100%;
+              transition: background 0.15s;
+            }
+            .submit-indent-btn:hover {
+              background: #162840;
+            }
+            .submit-indent-btn:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+            .indent-layout-grid {
+              display: grid;
+              grid-template-columns: 320px 1fr;
+              gap: 16px;
+              align-items: start;
+            }
+            .history-table-row {
+              border-bottom: 1px solid #F3F4F6;
+              transition: background 0.15s;
+            }
+            .history-table-row:hover {
+              background: #F9FAFB;
+            }
+            @media (max-width: 768px) {
+              .indent-layout-grid {
+                grid-template-columns: 1fr;
+              }
+            }
           `}}/>
 
-          <Btn onClick={submit} style={{ width: "100%", marginBottom: 12 }}>Submit Indent</Btn>
-
           {/* Quick Sharing Section */}
-          <div style={{ 
-            display: "flex", gap: 10, justifyContent: "center", alignItems: "center",
-            paddingTop: 10, borderTop: `1px solid ${COLORS.border}44`
-          }}>
-            <span style={{ fontSize: 11, color: COLORS.muted }}>Share Order:</span>
-            <button onClick={shareWhatsApp} style={{ background: "transparent", border: "none", color: COLORS.success, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>💬 WhatsApp</button>
-            <span style={{ color: COLORS.border }}>|</span>
-            <button onClick={printSlip} style={{ background: "transparent", border: "none", color: COLORS.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>🖨️ Print Slip</button>
+          <div style={{ borderTop: "1px solid #E5E7EB", margin: "14px 0" }}></div>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px", fontSize: "12px", color: "#6B7280" }}>
+            <span style={{ color: "#6B7280" }}>Share Order:</span>
+            <button 
+              onClick={shareWhatsApp} 
+              style={{ 
+                background: "transparent", 
+                border: "none", 
+                color: "#25D366", 
+                fontSize: "12px", 
+                cursor: "pointer", 
+                fontWeight: 600, 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "4px",
+                padding: 0
+              }}
+            >
+              <WhatsAppIcon size={14} /> WhatsApp
+            </button>
+            <span style={{ color: "#E5E7EB" }}>|</span>
+            <button 
+              onClick={printSlip} 
+              style={{ 
+                background: "transparent", 
+                border: "none", 
+                color: "#374151", 
+                fontSize: "12px", 
+                cursor: "pointer", 
+                fontWeight: 600, 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "4px",
+                padding: 0
+              }}
+            >
+              <Printer size={14} /> Print Slip
+            </button>
           </div>
 
           {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 8, textAlign: "center" }}>{msg}</p>}
@@ -822,55 +977,165 @@ export default function IndentScreen() {
           </div>
         )}
 
-        {/* List */}
-        <Card style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "14px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 10, alignItems: "center" }}>
-            <SearchBar onSearch={(q) => load({ page: 1, q })} placeholder="Search items…" />
+        {/* Right Panel - List */}
+        <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "20px 24px" }}>
+          <p style={{ fontSize: "10px", fontWeight: 500, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: "16px" }}>INDENT HISTORY</p>
+          
+          {/* Search & Filter Bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+            <div style={{ position: "relative", flex: 1 }}>
+              <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }} />
+              <input
+                value={historySearch}
+                onChange={(e) => {
+                  setHistorySearch(e.target.value);
+                  if (!e.target.value) load({ page: 1, q: "" });
+                }}
+                placeholder="Search items…"
+                style={{
+                  width: "100%",
+                  padding: "7px 10px 7px 32px",
+                  border: "1px solid #D1D5DB",
+                  borderRadius: "8px",
+                  background: "#F9FAFB",
+                  fontSize: "12px",
+                  outline: "none"
+                }}
+              />
+            </div>
+            
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); load({ page: 1, status: e.target.value }); }}
-              style={{ width: 130, padding: "7px 10px", fontSize: 12 }}
+              style={{
+                padding: "7px 10px",
+                border: "1px solid #D1D5DB",
+                borderRadius: "8px",
+                background: "#F9FAFB",
+                fontSize: "12px",
+                outline: "none"
+              }}
             >
               <option value="">All statuses</option>
               <option value="pending">Pending</option>
               <option value="issued">Issued</option>
               <option value="cancelled">Cancelled</option>
             </select>
+
+            <button
+              onClick={() => load({ page: 1, q: historySearch.trim() })}
+              style={{
+                padding: "7px 14px",
+                background: "#1D3557",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "12px",
+                cursor: "pointer"
+              }}
+            >
+              Search
+            </button>
           </div>
 
           {loading ? (
             <p style={{ color: COLORS.muted, textAlign: "center", padding: 32 }}>Loading…</p>
           ) : error ? (
             <ErrorMsg error={error} />
-          ) : items.length === 0 ? (
-            <p style={{ color: COLORS.muted, textAlign: "center", padding: 40 }}>No indents yet</p>
           ) : (
             <>
-              <div style={{ overflowY: "auto", maxHeight: 400 }}>
-                {items.map((ind) => (
-                  <div key={ind.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${COLORS.border}22` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <div>
-                        <span style={{ fontWeight: 600, color: COLORS.accent }}>{ind.dept}</span>
-                        <span style={{ color: COLORS.muted, fontSize: 12, marginLeft: 10 }}>{ind.date}</span>
-                      </div>
-                      <span className="badge" style={{
-                        background: ind.status === "issued" ? COLORS.success + "22" : ind.status === "cancelled" ? COLORS.coral + "22" : COLORS.accent + "22",
-                        color: ind.status === "issued" ? COLORS.success : ind.status === "cancelled" ? COLORS.coral : COLORS.accent,
-                      }}>{ind.status}</span>
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {(ind.items || []).map((it, i) => (
-                        <span key={i} style={{ fontSize: 12, background: COLORS.border + "44", borderRadius: 4, padding: "2px 8px" }}>
-                          <span style={{ color: COLORS.accent, fontWeight: 500, marginRight: 4 }}>{it.item_code}</span>
-                          {it.name} <span style={{ color: COLORS.muted }}>{it.qty} {it.unit || "kg"}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col style={{ width: "22%" }} />
+                    <col style={{ width: "16%" }} />
+                    <col style={{ width: "46%" }} />
+                    <col style={{ width: "16%" }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ background: "#F9FAFB" }}>
+                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DEPARTMENT</th>
+                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DATE NEEDED</th>
+                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>ITEMS</th>
+                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "right", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: "center", padding: "40px 20px" }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                            <Inbox size={32} color="#D1D5DB" />
+                            <span style={{ fontSize: "13px", color: "#9CA3AF", marginTop: "8px" }}>
+                              No indent requests found
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      items.map((ind) => {
+                        const statusInfo = getStatusStyleAndText(ind.status);
+                        return (
+                          <tr key={ind.id} className="history-table-row">
+                            {/* DEPARTMENT */}
+                            <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
+                              <span style={{ fontWeight: 500, fontSize: "13px", color: "#111827" }}>
+                                {cleanDeptName(ind.dept)}
+                              </span>
+                            </td>
+                            {/* DATE NEEDED */}
+                            <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
+                              <span style={{ fontSize: "12px", color: "#6B7280", whiteSpace: "nowrap" }}>
+                                {formatDate(ind.date)}
+                              </span>
+                            </td>
+                            {/* ITEMS */}
+                            <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+                                {(ind.items || []).map((it, i) => (
+                                  <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                    <span style={{
+                                      background: "#F3F4F6",
+                                      border: "1px solid #E5E7EB",
+                                      borderRadius: "4px",
+                                      padding: "2px 6px",
+                                      fontSize: "10px",
+                                      fontFamily: "monospace",
+                                      color: "#6B7280"
+                                    }}>
+                                      {it.item_code}
+                                    </span>
+                                    <span style={{ fontSize: "11px", color: "#374151" }}>
+                                      {it.name} · {it.qty} {it.unit || "kg"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            {/* STATUS */}
+                            <td style={{ padding: "10px 8px", textAlign: "right", verticalAlign: "middle" }}>
+                              <span style={{
+                                background: statusInfo.bg,
+                                color: statusInfo.color,
+                                padding: "2px 10px",
+                                borderRadius: "20px",
+                                fontSize: "10px",
+                                fontWeight: 500,
+                                display: "inline-block"
+                              }}>
+                                {statusInfo.text}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
+              {items.length > 0 && (
+                <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
+              )}
             </>
           )}
         </Card>
