@@ -12,7 +12,7 @@ import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
 import { useLocalSpeech } from "../../hooks/useLocalSpeech";
-import { Plus, Zap, Mic, History, Trash2, Printer, Search, Inbox } from "lucide-react";
+import { Plus, Zap, Mic, History, Trash2, Printer, Search, Inbox, ChevronDown, ChevronUp } from "lucide-react";
 
 const WhatsAppIcon = ({ size = 15 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" style={{ display: "inline-block", verticalAlign: "middle" }}>
@@ -62,7 +62,9 @@ export default function IndentScreen() {
   // Local speech-to-text (Whisper Tiny — no Google, no internet)
   const { listening, statusMsg: speechStatus, startRecording, stopRecording } = useLocalSpeech("en-IN");
   
-  const [form, setForm] = useState({ dept: "", date: today(), items: [{ name: "", qty: "", unit: "kg", item_code: "" }] });
+  const [form, setForm] = useState({ dept: "", date: today(), items: [{ id: Date.now(), name: "", qty: "", unit: "kg", item_code: "", notes: "" }] });
+  const [activeRowIdx, setActiveRowIdx] = useState(0);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
   const [msg, setMsg]   = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const { items, total, page, loading, error, fetch } = usePaginatedApi(api.indents.list);
@@ -205,11 +207,14 @@ export default function IndentScreen() {
 
   const handleDeptChange = (e) => {
     const val = e.target.value;
-    setForm((f) => ({ ...f, dept: val, items: [{ name: "", qty: "", unit: "kg", item_code: "" }] }));
+    setForm((f) => ({ ...f, dept: val, items: [{ id: Date.now(), name: "", qty: "", unit: "kg", item_code: "", notes: "" }] }));
     loadLeftovers(val);
   };
 
-  const addRow    = () => setForm((f) => ({ ...f, items: [...f.items, { name: "", qty: "", unit: "kg", item_code: "" }] }));
+  const addRow = () => {
+    setForm((f) => ({ ...f, items: [...f.items, { id: Date.now() + Math.random(), name: "", qty: "", unit: "kg", item_code: "", notes: "" }] }));
+    setActiveRowIdx(form.items.length); // Focus on the new row
+  };
   const removeRow = (idx) => setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
 
   const addSuggestionChip = (chip) => {
@@ -517,614 +522,188 @@ export default function IndentScreen() {
     } catch (e) { setMsg("Error: " + e.message); }
   };
 
+  
   return (
     <Section title="Indent Request" sub="Departments submit nightly material requirements">
-      <div className="indent-layout-grid">
-        {/* Left Panel - Form */}
-        <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "20px 24px" }}>
-          <p style={{ fontSize: "10px", fontWeight: 500, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: "16px" }}>NEW INDENT FORM</p>
+      <div className="indent-page-wrapper">
+        
+        {/* --- TOP: NEW INDENT FORM --- */}
+        <div className="indent-top-section">
           
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: "11px", color: "#6B7280", marginBottom: "4px", display: "block", fontWeight: 400 }}>
-              Department
-            </label>
-            <select className="indent-field" value={form.dept} onChange={handleDeptChange}>
-              {deptsList.map((d) => <option key={d.id} value={d.name}>{d.name} ({d.code})</option>)}
-            </select>
-          </div>
-          
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: "11px", color: "#6B7280", marginBottom: "4px", display: "block", fontWeight: 400 }}>
-              Date needed
-            </label>
-            <input className="indent-field" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-          </div>
-
-          {/* Leftovers Zero-Waste Alert Banner */}
-          {deptLeftovers.length > 0 && (
-            <div style={{
-              background: COLORS.coral + "22",
-              border: `1px solid ${COLORS.coral}66`,
-              borderRadius: 8,
-              padding: "10px 14px",
-              marginBottom: 16,
-              fontSize: 12,
-              color: COLORS.text
-            }}>
-              <div style={{ fontWeight: 600, color: COLORS.coral, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                <span>⚠️ Raw Leftovers Alert</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {deptLeftovers.map(l => (
-                  <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 11 }}>{l.item}: <strong>{l.qty} {l.unit}</strong> available</span>
-                    <button 
-                      onClick={() => deductLeftover(l)}
-                      style={{
-                        background: COLORS.coral,
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 4,
-                        padding: "3px 8px",
-                        fontSize: 10,
-                        cursor: "pointer",
-                        fontWeight: 600,
-                        transition: "opacity 0.2s"
-                      }}
-                      onMouseOver={(e) => e.target.style.opacity = "0.8"}
-                      onMouseOut={(e) => e.target.style.opacity = "1"}
-                    >
-                      Use / Deduct
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Quick-Add Suggestions Chips */}
-          {suggestedChips.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 10, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Quick Add Suggestions</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {suggestedChips.map(chip => (
-                  <button
-                    key={chip.name}
-                    onClick={() => addSuggestionChip(chip)}
-                    style={{
-                      background: COLORS.bg + "66",
-                      border: `1px solid ${COLORS.border}aa`,
-                      borderRadius: 20,
-                      padding: "4px 10px",
-                      fontSize: 11,
-                      color: COLORS.accent,
-                      cursor: "pointer",
-                      fontWeight: 500,
-                      transition: "all 0.15s"
-                    }}
-                    onMouseOver={e => e.target.style.borderColor = COLORS.accent}
-                    onMouseOut={e => e.target.style.borderColor = COLORS.border + "aa"}
-                  >
-                    + {chip.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <p style={{ fontSize: "10px", fontWeight: 500, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase", marginTop: "14px", marginBottom: "8px" }}>ITEMS REQUESTED</p>
-          
-          <div style={{
-            background: "#F9FAFB",
-            border: "1px solid #E5E7EB",
-            borderRadius: "8px",
-            padding: "10px 14px",
-            minHeight: "72px",
-            marginTop: "14px",
-            maxHeight: "280px",
-            overflowY: "auto"
-          }}>
-            {form.items.length === 0 || (form.items.length === 1 && !form.items[0].name && !form.items[0].qty) ? (
-              <div style={{ fontSize: "12px", color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>
-                No items added yet
-              </div>
-            ) : (
-              form.items.map((item, idx) => {
-                const cleanName = item.name.toLowerCase().trim();
-                const avail = availableStock[cleanName];
-                const isStockCheckActive = item.name && avail !== undefined;
-                const isLowStock = isStockCheckActive && avail <= 5;
-                
-                return (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                    {/* SKU badge */}
-                    <span style={{
-                      background: "#EFF6FF",
-                      color: "#1D4ED8",
-                      padding: "2px 7px",
-                      borderRadius: "4px",
-                      fontSize: "11px",
-                      fontWeight: 500,
-                      fontFamily: "monospace"
-                    }}>
-                      {item.item_code || "NEW"}
-                    </span>
-
-                    {/* Item name */}
-                    {item.name ? (
-                      <span style={{ fontSize: "12px", color: "#111827", fontWeight: 500 }}>
-                        {item.name}
-                      </span>
-                    ) : (
-                      <input 
-                        value={item.name} 
-                        onChange={(e) => updateItem(idx, "name", e.target.value)} 
-                        placeholder="Item name" 
-                        list="stock-names" 
-                        style={{ 
-                          border: "1px solid #D1D5DB",
-                          borderRadius: "4px",
-                          padding: "2px 6px",
-                          fontSize: "12px",
-                          color: "#111827",
-                          background: "#fff",
-                          width: "120px"
-                        }} 
-                      />
-                    )}
-
-                    {/* Quantity */}
-                    <input 
-                      value={item.qty} 
-                      onChange={(e) => updateItem(idx, "qty", e.target.value)} 
-                      placeholder="Qty" 
-                      type="number" 
-                      style={{ 
-                        border: "1px solid #D1D5DB",
-                        borderRadius: "4px",
-                        padding: "2px 6px",
-                        fontSize: "12px",
-                        color: "#6B7280",
-                        background: "#fff",
-                        width: "60px"
-                      }} 
-                    />
-                    <span style={{ fontSize: "12px", color: "#6B7280" }}>
-                      {item.unit || "kg"}
-                    </span>
-
-                    {isStockCheckActive && (
-                      <span style={{
-                        fontSize: 9,
-                        fontWeight: 600,
-                        padding: "1px 4px",
-                        borderRadius: 3,
-                        background: isLowStock ? COLORS.coral + "22" : COLORS.success + "22",
-                        color: isLowStock ? COLORS.coral : COLORS.success,
-                        whiteSpace: "nowrap"
-                      }}>
-                        Avail: {avail}
-                      </span>
-                    )}
-
-                    {/* Trash icon */}
-                    <button 
-                      onClick={() => removeRow(idx)} 
-                      style={{ 
-                        background: "transparent", 
-                        border: "none", 
-                        cursor: "pointer", 
-                        marginLeft: "auto", 
-                        padding: "4px",
-                        display: "flex",
-                        alignItems: "center",
-                        color: "#EF4444"
-                      }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          <datalist id="stock-names">{filteredStockNames.map((n) => <option key={n} value={n} />)}</datalist>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "12px" }}>
-            <button className="indent-btn" onClick={addRow}>
-              <Plus size={15} /> Add Item
-            </button>
-            <button className="indent-btn" onClick={() => { setSelectedItems({}); setShowModal(true); }}>
-              <Zap size={15} /> Add Multi
-            </button>
-            <button 
-              onClick={startListening} 
-              className="indent-btn"
-              style={listening ? { background: "#FEF2F2", borderColor: "#EF4444", color: "#EF4444" } : {}}
-            >
-              <Mic size={15} color={listening ? "#EF4444" : "#374151"} />
-              {listening ? "Recording... (tap to stop)" : "Voice Input"}
-            </button>
-            <button className="indent-btn" onClick={smartAutofill}>
-              <History size={15} /> Autofill History
-            </button>
-
-            <button 
-              className="submit-indent-btn" 
-              onClick={submit}
-              disabled={form.items.filter((i) => i.name && i.qty).length === 0}
-            >
-              Submit Indent
-            </button>
-          </div>
-
-          <style dangerouslySetInnerHTML={{__html: `
-            @keyframes pulse {
-              0% { transform: scale(0.85); opacity: 0.5; }
-              50% { transform: scale(1.15); opacity: 1; }
-              100% { transform: scale(0.85); opacity: 0.5; }
-            }
-            .indent-field {
-              width: 100%;
-              padding: 8px 12px;
-              border: 1px solid #D1D5DB;
-              border-radius: 8px;
-              background: #F9FAFB;
-              font-size: 13px;
-              outline: none;
-              box-sizing: border-box;
-              transition: border-color 0.15s, box-shadow 0.15s;
-            }
-            .indent-field:focus {
-              outline: 2px solid #1D3557;
-              outline-offset: 1px;
-            }
-            .indent-btn {
-              padding: 7px 10px;
-              border: 1px solid #D1D5DB;
-              border-radius: 8px;
-              background: transparent;
-              color: #374151;
-              font-size: 12px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 6px;
-              cursor: pointer;
-              transition: background 0.15s;
-            }
-            .indent-btn:hover {
-              background: #F3F4F6;
-            }
-            .submit-indent-btn {
-              grid-column: span 2;
-              padding: 10px;
-              background: #1D3557;
-              color: white;
-              border: none;
-              border-radius: 8px;
-              font-size: 13px;
-              font-weight: 500;
-              cursor: pointer;
-              margin-top: 6px;
-              width: 100%;
-              transition: background 0.15s;
-            }
-            .submit-indent-btn:hover {
-              background: #162840;
-            }
-            .submit-indent-btn:disabled {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
-            .indent-layout-grid {
-              display: grid;
-              grid-template-columns: 320px 1fr;
-              gap: 16px;
-              align-items: start;
-            }
-            .history-table-row {
-              border-bottom: 1px solid #F3F4F6;
-              transition: background 0.15s;
-            }
-            .history-table-row:hover {
-              background: #F9FAFB;
-            }
-            @media (max-width: 768px) {
-              .indent-layout-grid {
-                grid-template-columns: 1fr;
-              }
-            }
-          `}}/>
-
-          {/* Quick Sharing Section */}
-          <div style={{ borderTop: "1px solid #E5E7EB", margin: "14px 0" }}></div>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px", fontSize: "12px", color: "#6B7280" }}>
-            <span style={{ color: "#6B7280" }}>Share Order:</span>
-            <button 
-              onClick={shareWhatsApp} 
-              style={{ 
-                background: "transparent", 
-                border: "none", 
-                color: "#25D366", 
-                fontSize: "12px", 
-                cursor: "pointer", 
-                fontWeight: 600, 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "4px",
-                padding: 0
-              }}
-            >
-              <WhatsAppIcon size={14} /> WhatsApp
-            </button>
-            <span style={{ color: "#E5E7EB" }}>|</span>
-            <button 
-              onClick={printSlip} 
-              style={{ 
-                background: "transparent", 
-                border: "none", 
-                color: "#374151", 
-                fontSize: "12px", 
-                cursor: "pointer", 
-                fontWeight: 600, 
-                display: "flex", 
-                alignItems: "center", 
-                gap: "4px",
-                padding: 0
-              }}
-            >
-              <Printer size={14} /> Print Slip
-            </button>
-          </div>
-
-          {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 8, textAlign: "center" }}>{msg}</p>}
-        </Card>
-
-        {showModal && (
-          <div style={{
-            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-            background: "rgba(0, 0, 0, 0.75)", display: "flex",
-            alignItems: "center", justifyContent: "center", zIndex: 1000,
-            backdropFilter: "blur(4px)"
-          }}>
-            <div style={{
-              background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-              borderRadius: 10, width: 520, padding: 24, display: "flex",
-              flexDirection: "column", maxHeight: "85vh", boxShadow: "0 10px 25px rgba(0,0,0,0.5)"
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ fontSize: 15, color: COLORS.accent, fontWeight: 600, margin: 0 }}>📦 Select Multiple Items</h3>
-                <button onClick={() => setShowModal(false)} style={{ background: "transparent", color: COLORS.muted, fontSize: 16, border: "none", cursor: "pointer" }}>✕</button>
+          {/* LEFT PANEL */}
+          <div className="indent-left-panel">
+            <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "20px 24px", height: "100%", display: "flex", flexDirection: "column" }}>
+              <p style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase", marginBottom: "20px" }}>NEW INDENT FORM</p>
+              
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: "12px", color: "#475569", marginBottom: "6px", display: "block", fontWeight: 500 }}>
+                  Department
+                </label>
+                <select className="indent-field" value={form.dept} onChange={handleDeptChange}>
+                  {deptsList.map((d) => <option key={d.id} value={d.name}>{d.name} ({d.code})</option>)}
+                </select>
               </div>
               
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type to filter items..."
-                style={{
-                  background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-                  color: COLORS.text, borderRadius: 6, padding: "8px 12px",
-                  marginBottom: 16, width: "100%", fontSize: 13
-                }}
-              />
-
-              {/* Categorized Tab Bar */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, borderBottom: `1px solid ${COLORS.border}33`, paddingBottom: 10 }}>
-                {["All", "Grocery", "Dairy", "Vegetables", "Disposables", "Others"].map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    style={{
-                      background: activeCategory === cat ? COLORS.accent + "22" : "transparent",
-                      border: `1px solid ${activeCategory === cat ? COLORS.accent : COLORS.border + "aa"}`,
-                      borderRadius: 4,
-                      padding: "4px 10px",
-                      fontSize: 11,
-                      color: activeCategory === cat ? COLORS.accent : COLORS.muted,
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      transition: "all 0.15s"
-                    }}
-                  >
-                    {cat}
-                  </button>
-                ))}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: "12px", color: "#475569", marginBottom: "6px", display: "block", fontWeight: 500 }}>
+                  Date Needed
+                </label>
+                <input className="indent-field" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
               </div>
 
-              <div style={{ flex: 1, overflowY: "auto", marginBottom: 16, display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, paddingRight: 6 }}>
-                {filteredStockItems
-                  .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .filter(s => activeCategory === "All" || getItemCategory(s.name) === activeCategory)
-                  .map((s) => {
-                    const isChecked = !!selectedItems[s.name];
-                    return (
-                      <label 
-                        key={s.item_code} 
-                        style={{ 
-                          display: "flex", alignItems: "center", gap: 10, 
-                          padding: "8px 12px", background: isChecked ? COLORS.accent + "11" : COLORS.bg + "44",
-                          border: `1px solid ${isChecked ? COLORS.accent + "44" : COLORS.border + "44"}`,
-                          borderRadius: 6, cursor: "pointer", transition: "all 0.15s"
-                        }}
+              {/* Quick Add Suggestions */}
+              {suggestedChips.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ fontSize: 11, color: COLORS.muted, fontWeight: 500, marginBottom: 8 }}>Quick Add Suggestions</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {suggestedChips.map(chip => (
+                      <button
+                        key={chip.name}
+                        onClick={() => addSuggestionChip(chip)}
+                        className="chip-suggestion"
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => setSelectedItems(prev => ({ ...prev, [s.name]: !prev[s.name] }))}
-                          style={{ width: "auto", cursor: "pointer" }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <p style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, margin: 0 }}>{s.name}</p>
-                            <span style={{ fontSize: 9, color: COLORS.muted, background: COLORS.border + "33", padding: "1px 5px", borderRadius: 3 }}>
-                              {getItemCategory(s.name)}
-                            </span>
-                          </div>
-                          <p style={{ fontSize: 10, color: COLORS.muted, margin: "2px 0 0" }}>{s.item_code} · Unit: {s.unit}</p>
-                        </div>
-                      </label>
-                    );
-                  })}
+                        + {chip.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "24px", marginTop: "auto" }}>
+                <button className="action-btn primary-outline" onClick={addRow}>
+                  <Plus size={15} /> Add Item
+                </button>
+                <button className="action-btn secondary-outline" onClick={() => { setSelectedItems({}); setShowModal(true); }}>
+                  <Zap size={15} /> Add Multi
+                </button>
+                <button onClick={startListening} className={`action-btn subtle ${listening ? 'listening' : ''}`}>
+                  <Mic size={15} color={listening ? "#EF4444" : "#475569"} />
+                  {listening ? "Recording..." : "Voice Input"}
+                </button>
+                <button className="action-btn subtle" onClick={smartAutofill}>
+                  <History size={15} /> Autofill History
+                </button>
               </div>
 
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <Btn variant="ghost" onClick={() => setShowModal(false)}>Cancel</Btn>
-                <Btn onClick={addSelectedItems}>Add Selected ({Object.values(selectedItems).filter(Boolean).length})</Btn>
+              {/* Submit & Share */}
+              <div style={{ marginTop: "auto" }}>
+                <button className="submit-indent-btn" onClick={submit} disabled={form.items.filter((i) => i.name && i.qty).length === 0}>
+                  Submit Indent
+                </button>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #E5E7EB" }}>
+                  <span style={{ color: "#64748B", fontSize: "12px", fontWeight: 500 }}>Share Order:</span>
+                  <button onClick={shareWhatsApp} className="share-btn whatsapp">
+                    <WhatsAppIcon size={14} /> WhatsApp
+                  </button>
+                  <span style={{ color: "#E5E7EB" }}>|</span>
+                  <button onClick={printSlip} className="share-btn print">
+                    <Printer size={14} /> Print Slip
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Right Panel - List */}
-        <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "20px 24px" }}>
-          <p style={{ fontSize: "10px", fontWeight: 500, letterSpacing: "0.08em", color: "#9CA3AF", textTransform: "uppercase", marginBottom: "16px" }}>INDENT HISTORY</p>
-          
-          {/* Search & Filter Bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
-            <div style={{ position: "relative", flex: 1 }}>
-              <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }} />
-              <input
-                value={historySearch}
-                onChange={(e) => {
-                  setHistorySearch(e.target.value);
-                  if (!e.target.value) load({ page: 1, q: "" });
-                }}
-                placeholder="Search items…"
-                style={{
-                  width: "100%",
-                  padding: "7px 10px 7px 32px",
-                  border: "1px solid #D1D5DB",
-                  borderRadius: "8px",
-                  background: "#F9FAFB",
-                  fontSize: "12px",
-                  outline: "none"
-                }}
-              />
-            </div>
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); load({ page: 1, status: e.target.value }); }}
-              style={{
-                padding: "7px 10px",
-                border: "1px solid #D1D5DB",
-                borderRadius: "8px",
-                background: "#F9FAFB",
-                fontSize: "12px",
-                outline: "none"
-              }}
-            >
-              <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="issued">Issued</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-
-            <button
-              onClick={() => load({ page: 1, q: historySearch.trim() })}
-              style={{
-                padding: "7px 14px",
-                background: "#1D3557",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "12px",
-                cursor: "pointer"
-              }}
-            >
-              Search
-            </button>
+              {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 12, textAlign: "center", fontWeight: 500 }}>{msg}</p>}
+            </Card>
           </div>
 
-          {loading ? (
-            <p style={{ color: COLORS.muted, textAlign: "center", padding: 32 }}>Loading…</p>
-          ) : error ? (
-            <ErrorMsg error={error} />
-          ) : (
-            <>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          {/* RIGHT PANEL */}
+          <div className="indent-right-panel">
+            <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "0", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div className="table-container" style={{ flex: 1, overflowY: "auto" }}>
+                <table className="excel-table">
                   <colgroup>
-                    <col style={{ width: "22%" }} />
-                    <col style={{ width: "16%" }} />
-                    <col style={{ width: "46%" }} />
-                    <col style={{ width: "16%" }} />
+                    <col style={{ width: "40px" }} />
+                    <col style={{ width: "90px" }} />
+                    <col style={{ width: "auto" }} />
+                    <col style={{ width: "80px" }} />
+                    <col style={{ width: "80px" }} />
+                    <col style={{ width: "80px" }} />
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "50px" }} />
                   </colgroup>
                   <thead>
-                    <tr style={{ background: "#F9FAFB" }}>
-                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DEPARTMENT</th>
-                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DATE NEEDED</th>
-                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>ITEMS</th>
-                      <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "right", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>STATUS</th>
+                    <tr>
+                      <th>#</th>
+                      <th>Item Code</th>
+                      <th>Item Name</th>
+                      <th>Qty</th>
+                      <th>Unit</th>
+                      <th>Avail</th>
+                      <th>Notes</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.length === 0 ? (
+                    {form.items.length === 0 ? (
                       <tr>
-                        <td colSpan="4" style={{ textAlign: "center", padding: "40px 20px" }}>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                            <Inbox size={32} color="#D1D5DB" />
-                            <span style={{ fontSize: "13px", color: "#9CA3AF", marginTop: "8px" }}>
-                              No indent requests found
-                            </span>
-                          </div>
+                        <td colSpan="8" style={{ textAlign: "center", padding: "40px 20px" }}>
+                          <span style={{ color: "#94a3b8", fontSize: "13px" }}>No items added yet.<br/>Click "+ Add Item" to get started.</span>
                         </td>
                       </tr>
                     ) : (
-                      items.map((ind) => {
-                        const statusInfo = getStatusStyleAndText(ind.status);
+                      form.items.map((item, idx) => {
+                        const cleanName = item.name.toLowerCase().trim();
+                        const avail = availableStock[cleanName];
+                        const isStockCheckActive = item.name && avail !== undefined;
+                        const isLowStock = isStockCheckActive && avail < (parseFloat(item.qty) || 0);
+                        const isNewItem = item.item_code === "KPL-NEW" || !item.item_code;
+                        const isActive = activeRowIdx === idx;
+
                         return (
-                          <tr key={ind.id} className="history-table-row">
-                            {/* DEPARTMENT */}
-                            <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
-                              <span style={{ fontWeight: 500, fontSize: "13px", color: "#111827" }}>
-                                {cleanDeptName(ind.dept)}
+                          <tr key={item.id || idx} className={`excel-row ${isActive ? 'active-row' : ''}`} onClick={() => setActiveRowIdx(idx)}>
+                            <td className="row-num">{idx + 1}</td>
+                            <td>
+                              <span className={`kpl-badge ${isNewItem ? 'new' : 'existing'}`}>
+                                {item.item_code || "NEW"}
                               </span>
                             </td>
-                            {/* DATE NEEDED */}
-                            <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
-                              <span style={{ fontSize: "12px", color: "#6B7280", whiteSpace: "nowrap" }}>
-                                {formatDate(ind.date)}
-                              </span>
+                            <td>
+                              <input
+                                autoFocus={isActive}
+                                value={item.name}
+                                onChange={(e) => updateItem(idx, "name", e.target.value)}
+                                placeholder="Item name"
+                                list="stock-names"
+                                className="excel-input"
+                              />
                             </td>
-                            {/* ITEMS */}
-                            <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-                                {(ind.items || []).map((it, i) => (
-                                  <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                                    <span style={{
-                                      background: "#F3F4F6",
-                                      border: "1px solid #E5E7EB",
-                                      borderRadius: "4px",
-                                      padding: "2px 6px",
-                                      fontSize: "10px",
-                                      fontFamily: "monospace",
-                                      color: "#6B7280"
-                                    }}>
-                                      {it.item_code}
-                                    </span>
-                                    <span style={{ fontSize: "11px", color: "#374151" }}>
-                                      {it.name} · {it.qty} {it.unit || "kg"}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
+                            <td>
+                              <input
+                                type="number"
+                                value={item.qty}
+                                onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                                className="excel-input"
+                              />
                             </td>
-                            {/* STATUS */}
-                            <td style={{ padding: "10px 8px", textAlign: "right", verticalAlign: "middle" }}>
-                              <span style={{
-                                background: statusInfo.bg,
-                                color: statusInfo.color,
-                                padding: "2px 10px",
-                                borderRadius: "20px",
-                                fontSize: "10px",
-                                fontWeight: 500,
-                                display: "inline-block"
-                              }}>
-                                {statusInfo.text}
-                              </span>
+                            <td>
+                              <select 
+                                value={item.unit} 
+                                onChange={(e) => updateItem(idx, "unit", e.target.value)}
+                                className="excel-input"
+                              >
+                                {["kg", "g", "L", "ml", "pcs", "dozen", "box", "plates", "portions"].map(u => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                            </td>
+                            <td>
+                              {isStockCheckActive ? (
+                                <span className={`stock-cell ${isLowStock ? 'low' : 'ok'}`}>
+                                  {avail}
+                                </span>
+                              ) : <span style={{ color: "#cbd5e1" }}>-</span>}
+                            </td>
+                            <td>
+                              <input
+                                value={item.notes || ""}
+                                onChange={(e) => updateItem(idx, "notes", e.target.value)}
+                                placeholder="Notes..."
+                                className="excel-input"
+                              />
+                            </td>
+                            <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                              <button onClick={(e) => { e.stopPropagation(); removeRow(idx); }} className="row-delete-btn">
+                                <Trash2 size={14} />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -1133,13 +712,244 @@ export default function IndentScreen() {
                   </tbody>
                 </table>
               </div>
-              {items.length > 0 && (
-                <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
+              <div style={{ padding: "12px 16px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F8FAFC" }}>
+                <button onClick={addRow} className="add-row-btn">[ + Add row ]</button>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>Total items: {form.items.filter(i => i.name).length}</div>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* --- BOTTOM: INDENT HISTORY --- */}
+        <div className="indent-history-section">
+          <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "20px 24px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isHistoryExpanded ? "16px" : "0" }}>
+              <h2 style={{ fontSize: "15px", fontWeight: 700, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }} onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}>
+                Indent History
+                {isHistoryExpanded ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+              </h2>
+              {isHistoryExpanded && (
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <div style={{ position: "relative" }}>
+                    <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }} />
+                    <input
+                      value={historySearch}
+                      onChange={(e) => { setHistorySearch(e.target.value); if (!e.target.value) load({ page: 1, q: "" }); }}
+                      placeholder="Search items…"
+                      style={{ padding: "7px 10px 7px 32px", border: "1px solid #D1D5DB", borderRadius: "8px", background: "#F9FAFB", fontSize: "12px", outline: "none", width: "180px" }}
+                    />
+                  </div>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); load({ page: 1, status: e.target.value }); }}
+                    style={{ padding: "7px 10px", border: "1px solid #D1D5DB", borderRadius: "8px", background: "#F9FAFB", fontSize: "12px", outline: "none" }}
+                  >
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="issued">Issued</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  <button onClick={() => load({ page: 1, q: historySearch.trim() })} style={{ padding: "7px 14px", background: "#1D3557", color: "white", border: "none", borderRadius: "8px", fontSize: "12px", cursor: "pointer" }}>
+                    Search
+                  </button>
+                </div>
               )}
-            </>
-          )}
-        </Card>
+            </div>
+
+            {isHistoryExpanded && (
+              <>
+                {loading ? <p style={{ color: COLORS.muted, textAlign: "center", padding: 32 }}>Loading…</p> : error ? <ErrorMsg error={error} /> : (
+                  <>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                        <colgroup>
+                          <col style={{ width: "22%" }} />
+                          <col style={{ width: "16%" }} />
+                          <col style={{ width: "46%" }} />
+                          <col style={{ width: "16%" }} />
+                        </colgroup>
+                        <thead>
+                          <tr style={{ background: "#F9FAFB" }}>
+                            <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DEPARTMENT</th>
+                            <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DATE NEEDED</th>
+                            <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>ITEMS</th>
+                            <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "right", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>STATUS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.length === 0 ? (
+                            <tr>
+                              <td colSpan="4" style={{ textAlign: "center", padding: "40px 20px" }}>
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                                  <Inbox size={32} color="#D1D5DB" />
+                                  <span style={{ fontSize: "13px", color: "#9CA3AF", marginTop: "8px" }}>No indent requests found</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            items.map((ind) => {
+                              const statusInfo = getStatusStyleAndText(ind.status);
+                              return (
+                                <tr key={ind.id} className="history-table-row">
+                                  <td style={{ padding: "10px 8px", verticalAlign: "middle" }}><span style={{ fontWeight: 500, fontSize: "13px", color: "#111827" }}>{cleanDeptName(ind.dept)}</span></td>
+                                  <td style={{ padding: "10px 8px", verticalAlign: "middle" }}><span style={{ fontSize: "12px", color: "#6B7280", whiteSpace: "nowrap" }}>{formatDate(ind.date)}</span></td>
+                                  <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+                                      {(ind.items || []).map((it, i) => (
+                                        <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                          <span style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: "4px", padding: "2px 6px", fontSize: "10px", fontFamily: "monospace", color: "#6B7280" }}>{it.item_code}</span>
+                                          <span style={{ fontSize: "11px", color: "#374151" }}>{it.name} · {it.qty} {it.unit || "kg"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: "10px 8px", textAlign: "right", verticalAlign: "middle" }}>
+                                    <span style={{ background: statusInfo.bg, color: statusInfo.color, padding: "2px 10px", borderRadius: "20px", fontSize: "10px", fontWeight: 500, display: "inline-block" }}>{statusInfo.text}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {items.length > 0 && <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />}
+                  </>
+                )}
+              </>
+            )}
+          </Card>
+        </div>
+
+        {/* Modal Logic (Outside the main flow, preserving functionality) */}
+        {showModal && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0, 0, 0, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
+            <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, width: 520, padding: 24, display: "flex", flexDirection: "column", maxHeight: "85vh", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ fontSize: 15, color: COLORS.accent, fontWeight: 600, margin: 0 }}>📦 Select Multiple Items</h3>
+                <button onClick={() => setShowModal(false)} style={{ background: "transparent", color: COLORS.muted, fontSize: 16, border: "none", cursor: "pointer" }}>✕</button>
+              </div>
+              <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Type to filter items..." style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "8px 12px", marginBottom: 16, width: "100%", fontSize: 13 }} />
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, borderBottom: `1px solid ${COLORS.border}33`, paddingBottom: 10 }}>
+                {["All", "Grocery", "Dairy", "Vegetables", "Disposables", "Others"].map(cat => (
+                  <button key={cat} onClick={() => setActiveCategory(cat)} style={{ background: activeCategory === cat ? COLORS.accent + "22" : "transparent", border: `1px solid ${activeCategory === cat ? COLORS.accent : COLORS.border + "aa"}`, borderRadius: 4, padding: "4px 10px", fontSize: 11, color: activeCategory === cat ? COLORS.accent : COLORS.muted, cursor: "pointer", fontWeight: 600, transition: "all 0.15s" }}>{cat}</button>
+                ))}
+              </div>
+              <div style={{ flex: 1, overflowY: "auto", marginBottom: 16, display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, paddingRight: 6 }}>
+                {filteredStockItems.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).filter(s => activeCategory === "All" || getItemCategory(s.name) === activeCategory).map((s) => {
+                  const isChecked = !!selectedItems[s.name];
+                  return (
+                    <label key={s.item_code} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: isChecked ? COLORS.accent + "11" : COLORS.bg + "44", border: `1px solid ${isChecked ? COLORS.accent + "44" : COLORS.border + "44"}`, borderRadius: 6, cursor: "pointer", transition: "all 0.15s" }}>
+                      <input type="checkbox" checked={isChecked} onChange={() => setSelectedItems(prev => ({ ...prev, [s.name]: !prev[s.name] }))} style={{ width: "auto", cursor: "pointer" }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <p style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, margin: 0 }}>{s.name}</p>
+                          <span style={{ fontSize: 9, color: COLORS.muted, background: COLORS.border + "33", padding: "1px 5px", borderRadius: 3 }}>{getItemCategory(s.name)}</span>
+                        </div>
+                        <p style={{ fontSize: 10, color: COLORS.muted, margin: "2px 0 0" }}>{s.item_code} · Unit: {s.unit}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <Btn variant="ghost" onClick={() => setShowModal(false)}>Cancel</Btn>
+                <Btn onClick={addSelectedItems}>Add Selected ({Object.values(selectedItems).filter(Boolean).length})</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        .indent-page-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .indent-top-section {
+          display: flex;
+          gap: 16px;
+          height: 600px;
+        }
+        .indent-left-panel {
+          width: 35%;
+          min-width: 320px;
+        }
+        .indent-right-panel {
+          width: 65%;
+        }
+        .indent-history-section {
+          width: 100%;
+        }
+        
+        .indent-field {
+          width: 100%; padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 8px; background: #fff; font-size: 13px; outline: none; transition: border-color 0.15s;
+        }
+        .indent-field:focus { border-color: #3b82f6; }
+        
+        .chip-suggestion {
+          background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 20px; padding: 4px 10px; fontSize: 11px; color: #475569; cursor: pointer; font-weight: 500; transition: all 0.15s;
+        }
+        .chip-suggestion:hover { border-color: #cbd5e1; background: #e2e8f0; color: #1e293b; }
+        
+        .action-btn {
+          padding: 8px 10px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.15s; font-weight: 500; height: 40px;
+        }
+        .action-btn.primary-outline { border: 1px solid #1e293b; background: white; color: #1e293b; }
+        .action-btn.primary-outline:hover { background: #f8fafc; }
+        .action-btn.secondary-outline { border: 1px solid #cbd5e1; background: white; color: #475569; }
+        .action-btn.secondary-outline:hover { background: #f8fafc; }
+        .action-btn.subtle { border: 1px solid transparent; background: #f1f5f9; color: #475569; }
+        .action-btn.subtle:hover { background: #e2e8f0; }
+        .action-btn.subtle.listening { background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; }
+
+        .submit-indent-btn {
+          width: 100%; padding: 12px; background: #1a1a2e; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+        }
+        .submit-indent-btn:hover { opacity: 0.9; }
+        .submit-indent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .share-btn { background: transparent; border: none; font-size: 12px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 4px; padding: 0; }
+        .share-btn.whatsapp { color: #22c55e; }
+        .share-btn.print { color: #475569; }
+        
+        /* Excel Table Styles */
+        .table-container { scrollbar-width: thin; }
+        .excel-table { width: 100%; border-collapse: collapse; }
+        .excel-table th { background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; text-align: left; position: sticky; top: 0; z-index: 2; }
+        .excel-table td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 0; position: relative; }
+        .excel-table tr.excel-row:nth-child(even) { background-color: #fafafa; }
+        .excel-table tr.excel-row:hover { background-color: #f1f5f9; }
+        .excel-table tr.active-row td { border-top: 2px solid #3b82f6; border-bottom: 2px solid #3b82f6; }
+        .excel-table tr.active-row td:first-child { border-left: 2px solid #3b82f6; }
+        .excel-table tr.active-row td:last-child { border-right: 2px solid #3b82f6; }
+        
+        .row-num { padding: 8px 10px !important; color: #94a3b8; font-size: 11px; text-align: center; }
+        
+        .kpl-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 10px; }
+        .kpl-badge.existing { background: #e2e8f0; color: #475569; }
+        .kpl-badge.new { background: #fef3c7; color: #d97706; }
+        
+        .excel-input { width: 100%; height: 100%; border: none; background: transparent; padding: 10px; font-size: 13px; color: #1e293b; outline: none; box-sizing: border-box; }
+        .excel-input:focus { background: white; }
+        
+        .stock-cell { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 10px; }
+        .stock-cell.ok { color: #16a34a; background: #dcfce7; }
+        .stock-cell.low { color: #dc2626; background: #fee2e2; }
+
+        .row-delete-btn { background: transparent; border: none; color: #ef4444; padding: 8px; cursor: pointer; opacity: 0; transition: opacity 0.15s; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        .excel-row:hover .row-delete-btn { opacity: 1; }
+
+        .add-row-btn { width: 100%; padding: 8px; text-align: left; background: transparent; border: 1px dashed transparent; color: #64748b; font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500; }
+        .add-row-btn:hover { border-color: #cbd5e1; background: white; color: #1e293b; }
+
+        @media (max-width: 1024px) {
+          .indent-top-section { flex-direction: column; height: auto; }
+          .indent-left-panel, .indent-right-panel { width: 100%; }
+          .indent-right-panel { min-height: 400px; }
+        }
+      `}}/>
     </Section>
   );
 }
