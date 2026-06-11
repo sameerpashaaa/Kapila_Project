@@ -5,7 +5,7 @@ const { getDepartmentNames } = require("../services/permissionService");
 async function list(req, res, next) {
   try {
     let query = db("departments").select("*").orderBy("name", "asc");
-    if (!req.user.isAdmin) {
+    if (!req.user.isAdmin && !req.user.isManager) {
       const deptNames = await getDepartmentNames(req.user);
       query.whereIn("name", deptNames);
     }

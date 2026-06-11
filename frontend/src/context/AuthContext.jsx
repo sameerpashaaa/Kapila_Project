@@ -81,7 +81,7 @@ export function AuthProvider({ children }) {
   const hasAnyPermission = useCallback((items) => items.some((permission) => hasPermission(permission)), [hasPermission]);
 
   const canAccessDepartment = useCallback((deptName) => {
-    if (!deptName || roles.some((role) => role.key === "admin")) return true;
+    if (!deptName || roles.some((role) => role.key === "admin" || role.key === "manager")) return true;
     return departments.some((dept) => dept.name?.toLowerCase() === String(deptName).toLowerCase());
   }, [departments, roles]);
 

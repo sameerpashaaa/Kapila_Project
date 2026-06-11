@@ -33,6 +33,7 @@ async function getUserAuthContext(userId) {
     permissions,
     departments,
     isAdmin: roles.some((role) => role.key === "admin"),
+    isManager: roles.some((role) => role.key === "manager"),
   };
 }
 
@@ -53,7 +54,7 @@ async function getDepartmentNames(user) {
 }
 
 async function assertDepartmentAccess(user, deptName) {
-  if (!deptName || user?.isAdmin) return;
+  if (!deptName || user?.isAdmin || user?.isManager) return;
   const departmentNames = await getDepartmentNames(user);
   const allowed = departmentNames.some((name) => name.toLowerCase() === String(deptName).toLowerCase());
   if (!allowed) {
@@ -62,7 +63,7 @@ async function assertDepartmentAccess(user, deptName) {
 }
 
 async function applyDepartmentScope(query, user, column = "dept") {
-  if (!user || user.isAdmin) return query;
+  if (!user || user.isAdmin || user.isManager) return query;
   const departmentNames = await getDepartmentNames(user);
   if (!departmentNames.length) {
     query.whereRaw("1 = 0");
