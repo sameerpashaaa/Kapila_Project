@@ -281,7 +281,8 @@ export default function StockScreen() {
 
   const load = async (overrides = {}) => {
     const merged = { ...filters, ...overrides };
-    const res = await fetch({ limit: LIMIT, sort: "created_at", order: "desc", ...merged });
+    const currentLimit = overrides.limit || (groupByItem ? 1000 : LIMIT);
+    const res = await fetch({ limit: currentLimit, sort: "created_at", order: "desc", ...merged });
     if (res && res.stats) {
       setStats(res.stats);
     }
@@ -877,7 +878,11 @@ export default function StockScreen() {
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
               <div style={{ padding: "14px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", background: COLORS.bg + "22", flexShrink: 0 }}>
                 <SearchBar onSearch={(q) => load({ page: 1, q })} placeholder="Search items…" style={{ flex: 1, minWidth: 200 }} />
-                <Btn variant="ghost" small onClick={() => setGroupByItem(!groupByItem)} icon={groupByItem ? <LayoutList size={12} /> : <BarChart2 size={12} />} style={{ fontSize: 12, padding: "6px 12px" }}>
+                <Btn variant="ghost" small onClick={() => {
+                  const nextVal = !groupByItem;
+                  setGroupByItem(nextVal);
+                  load({ page: 1, limit: nextVal ? 1000 : LIMIT });
+                }} icon={groupByItem ? <LayoutList size={12} /> : <BarChart2 size={12} />} style={{ fontSize: 12, padding: "6px 12px" }}>
                   {groupByItem ? "View All Batches" : "Group by Item"}
                 </Btn>
                 
@@ -1132,7 +1137,7 @@ export default function StockScreen() {
                       </tbody>
                     </table>
                   </div>
-                  <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
+                  {!groupByItem && <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
