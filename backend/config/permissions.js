@@ -78,6 +78,8 @@ const PERMISSIONS = [
   ["leftovers.delete", "leftovers", "delete", "Delete leftovers"],
   ["waste_analytics.view", "waste_analytics", "view", "View waste analytics"],
   ["waste_analytics.export", "waste_analytics", "export", "Export waste analytics"],
+  ["chef_stats.view", "chef_stats", "view", "View chef statistics"],
+  ["chef_stats.export", "chef_stats", "export", "Export chef statistics"],
   ["search.view", "search", "view", "Use global search"],
   ["scan.indent", "scan", "indent", "Scan indent forms"],
   ["scan.purchase", "scan", "purchase", "Scan purchase documents"],
@@ -105,12 +107,12 @@ const ROLE_PERMISSION_KEYS = {
     "menu.view", "menu.create", "menu.edit", "recipes.view", "recipes.create", "recipes.edit",
     "indents.view", "indents.create", "indents.edit", "issuances.view", "production.view",
     "production.create", "production.edit", "leftovers.view", "leftovers.create", "leftovers.edit",
-    "waste_analytics.view", "search.view", "scan.text",
+    "waste_analytics.view", "chef_stats.view", "search.view", "scan.text",
   ],
   employee: [
     "dashboard.view", "departments.view", "transfers.view", "transfers.create", "menu.view",
     "recipes.view", "indents.view", "indents.create", "production.view", "production.create",
-    "leftovers.view", "leftovers.create", "search.view",
+    "leftovers.view", "leftovers.create", "chef_stats.view", "search.view",
   ],
 };
 

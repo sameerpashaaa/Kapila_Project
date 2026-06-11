@@ -142,3 +142,8 @@ export const permissions = {
 export const auditLogs = {
   list: (params) => api.get("/audit-logs", params),
 };
+
+export const chefStats = {
+  overview: (params) => api.get("/chef-stats", params),
+  detail:   (deptId, params) => api.get(`/chef-stats/${deptId}`, params),
+};

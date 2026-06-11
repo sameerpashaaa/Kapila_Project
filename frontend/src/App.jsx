@@ -25,6 +25,7 @@ import TransfersScreen       from "./screens/Transfers";
 import ReorderPointsScreen   from "./screens/ReorderPoints";
 import MenuPlannerScreen     from "./screens/MenuPlanner";
 import WasteAnalyticsScreen   from "./screens/WasteAnalytics";
+import ChefStatsScreen        from "./screens/ChefStats";
 import UserManagementScreen from "./screens/UserManagement";
 import AuditLogsScreen from "./screens/AuditLogs";
 import LoginScreen from "./screens/Login";
@@ -68,6 +69,7 @@ const NAV_CATEGORIES = [
       { id: "production",   label: "Daily Production",permission: "production.view", icon: <ChefHat size={16} /> },
       { id: "leftover",     label: "Leftovers Logs",  permission: "leftovers.view", icon: <ArchiveRestore size={16} /> },
       { id: "waste_analytics", label: "Waste Analytics", permission: "waste_analytics.view", icon: <Trash2 size={16} /> },
+      { id: "chef_stats",    label: "Chef Statistics",  permission: "chef_stats.view", icon: <ChefHat size={16} /> },
     ]
   },
   {
@@ -137,6 +139,7 @@ function Inner() {
     leftover:   <ProtectedScreen permission="leftovers.view"><LeftoverScreen /></ProtectedScreen>,
     menu_planner: <ProtectedScreen permission="menu.view"><MenuPlannerScreen /></ProtectedScreen>,
     waste_analytics: <ProtectedScreen permission="waste_analytics.view"><WasteAnalyticsScreen /></ProtectedScreen>,
+    chef_stats: <ProtectedScreen permission="chef_stats.view"><ChefStatsScreen /></ProtectedScreen>,
     users: <ProtectedScreen permission="users.view"><UserManagementScreen /></ProtectedScreen>,
     audit_logs: <ProtectedScreen permission="audit_logs.view"><AuditLogsScreen /></ProtectedScreen>,
   };

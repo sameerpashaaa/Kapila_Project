@@ -272,49 +272,36 @@ export default function Dashboard() {
 
   return (
     <div style={{ fontFamily: "'Inter', system-ui, sans-serif", backgroundColor: THEME.bg, minHeight: "100vh", paddingBottom: 40 }}>
-      {/* SECTION 1: TOP HEADER BAR */}
-      <div style={{ position: "sticky", top: 0, zIndex: 10, backgroundColor: THEME.card, borderBottom: `1px solid ${THEME.border}`, padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* Logo pill */}
-          <div style={{
-            background: "#1E293B",
-            borderRadius: 8,
-            padding: "5px 14px",
-            display: "flex", alignItems: "center",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.12)"
-          }}>
-            <img src={kapilaLogo} alt="Kapila" style={{ height: 22, width: "auto", display: "block" }} />
-          </div>
-          <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: THEME.text }}>Hotel Kapila</h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: THEME.muted, fontSize: "14px" }}>
-            <Clock size={16} />
-            <span>{currentTime.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })} • {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <span style={{ backgroundColor: `${THEME.primary}15`, color: THEME.primary, padding: "4px 10px", borderRadius: "100px", fontSize: "12px", fontWeight: 600 }}>Admin</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          {/* Live Pill */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: `${THEME.success}15`, color: THEME.success, padding: "6px 12px", borderRadius: "100px", fontSize: "12px", fontWeight: 600 }}>
-            <div className="pulse-dot" style={{ width: 8, height: 8, backgroundColor: THEME.success, borderRadius: "50%" }}></div>
-            Live
-          </div>
-          {/* Bell */}
-          <div style={{ position: "relative", cursor: "pointer" }}>
-            <Bell size={20} color={THEME.text} />
-            {alertsList.length > 0 && (
-              <div style={{ position: "absolute", top: -4, right: -4, backgroundColor: THEME.danger, color: "#fff", fontSize: "9px", fontWeight: "bold", width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {alertsList.length}
-              </div>
-            )}
-          </div>
-          {/* Theme toggle placeholder */}
-          <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: THEME.bg, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <User size={16} color={THEME.text} />
-          </div>
-        </div>
-      </div>
-
       <div className="dash-main-container" style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "1600px", margin: "0 auto" }}>
+        
+        {/* SECTION 1: WELCOME BANNER */}
+        <Card style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            {/* Logo pill */}
+            <div style={{
+              background: "#1E293B",
+              borderRadius: 8,
+              padding: "5px 14px",
+              display: "flex", alignItems: "center",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.12)"
+            }}>
+              <img src={kapilaLogo} alt="Kapila" style={{ height: 22, width: "auto", display: "block" }} />
+            </div>
+            <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: THEME.text }}>Hotel Kapila</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: THEME.muted, fontSize: "14px" }}>
+              <Clock size={16} />
+              <span>{currentTime.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })} • {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ backgroundColor: `${THEME.primary}15`, color: THEME.primary, padding: "6px 16px", borderRadius: "100px", fontSize: "12px", fontWeight: 600 }}>Admin</span>
+            {/* Live Pill */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: `${THEME.success}15`, color: THEME.success, padding: "6px 16px", borderRadius: "100px", fontSize: "12px", fontWeight: 600 }}>
+              <div className="pulse-dot" style={{ width: 8, height: 8, backgroundColor: THEME.success, borderRadius: "50%" }}></div>
+              System Live
+            </div>
+          </div>
+        </Card>
         
         {/* SECTION 2: KPI SUMMARY ROW */}
         <div className="dash-grid-auto-fit" style={{ display: "grid", gap: "20px" }}>

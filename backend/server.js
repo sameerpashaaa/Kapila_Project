@@ -40,6 +40,7 @@ app.use("/api/grn",             require("./routes/grn"));
 app.use("/api/transfers",       require("./routes/transfers"));
 app.use("/api/reorder-points",  require("./routes/reorderPoints"));
 app.use("/api/approved-delivery", require("./routes/approvedDelivery"));
+app.use("/api/chef-stats",  require("./routes/chefStats"));
 app.use("/api",                 require("./routes/recipes"));
 
 // Local AI health check — tells the frontend if Ollama is up and model loaded
