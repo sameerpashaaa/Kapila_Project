@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Section from "../../components/Section";
 import Card from "../../components/Card";
 import Btn from "../../components/Btn";
@@ -52,6 +52,111 @@ const getStatusStyleAndText = (status) => {
 const today = () => new Date().toISOString().slice(0, 10);
 const LIMIT = 20;
 
+// ── ITEM NAME COMBOBOX ────────────────────────────────────────────────────────
+function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value || "");
+  const [highlighted, setHighlighted] = useState(0);
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Keep query in sync when parent value changes (e.g. chip add, autofill)
+  useEffect(() => { setQuery(value || ""); }, [value]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = (() => {
+    if (!dept) return [];
+    const q = query.trim().toLowerCase();
+    return deptItems.filter(name => !q || name.toLowerCase().includes(q));
+  })();
+
+  const handleKey = (e) => {
+    if (!open) {
+      if (e.key === "ArrowDown" || e.key === "Enter") { setOpen(true); setHighlighted(0); }
+      return;
+    }
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted(h => Math.min(h + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filtered[highlighted]) { onSelect(filtered[highlighted]); setQuery(filtered[highlighted]); setOpen(false); }
+    }
+    else if (e.key === "Escape") { setOpen(false); }
+  };
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    setQuery(v);
+    onChange(v);
+    setOpen(true);
+    setHighlighted(0);
+  };
+
+  const handleBlur = () => {
+    // Small delay so mousedown on option fires first
+    setTimeout(() => setOpen(false), 120);
+  };
+
+  const handleSelect = (name) => {
+    onSelect(name);
+    setQuery(name);
+    setOpen(false);
+  };
+
+  return (
+    <div className="item-combobox-wrap" ref={wrapRef}>
+      <input
+        ref={inputRef}
+        className="item-combobox-input"
+        value={query}
+        autoFocus={autoFocus}
+        placeholder="Search item..."
+        onChange={handleChange}
+        onFocus={() => { setOpen(true); setHighlighted(0); }}
+        onBlur={handleBlur}
+        onKeyDown={handleKey}
+      />
+      {open && (
+        <div className="item-combobox-dropdown">
+          {!dept ? (
+            <div className="item-combobox-empty">Please select a department first</div>
+          ) : filtered.length === 0 ? (
+            <div className="item-combobox-empty">No items found for this department</div>
+          ) : (
+            filtered.map((name, i) => {
+              const stockMatch = stocks.find(s => s.name.toLowerCase() === name.toLowerCase());
+              return (
+                <div
+                  key={name}
+                  className={`item-combobox-option${highlighted === i ? " active" : ""}`}
+                  onMouseDown={() => handleSelect(name)}
+                  onMouseEnter={() => setHighlighted(i)}
+                >
+                  <span style={{ fontWeight: 500, color: "#111827" }}>{name}</span>
+                  {stockMatch && (
+                    <span style={{ fontSize: 11, color: "#6B7280", fontFamily: "monospace" }}>{stockMatch.item_code}</span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function IndentScreen() {
   const { stockNames, stocks, indentPreFill, setIndentPreFill } = useAppContext();
   const [deptsList, setDeptsList] = useState([]);
@@ -97,7 +202,7 @@ export default function IndentScreen() {
   // Filter items based on selected department's Excel items
   const getFilteredStockItems = () => {
     if (!form.dept) return uniqueStockItems;
-    const currentDeptItems = deptItemsMap[form.dept.toUpperCase()] || [];
+    const currentDeptItems = deptItemsMap[form.dept] || deptItemsMap[form.dept.toUpperCase()] || [];
     if (currentDeptItems.length === 0) {
       return uniqueStockItems;
     }
@@ -113,16 +218,13 @@ export default function IndentScreen() {
   const filteredStockItems = getFilteredStockItems();
   const filteredStockNames = filteredStockItems.map(s => s.name);
 
-  // Retrieve top 4 quick-add suggestion chips
-  const getSuggestedChips = () => {
-    return filteredStockItems.slice(0, 5).map(s => ({
-      name: s.name,
-      unit: s.unit,
-      item_code: s.item_code
-    }));
-  };
+  // Get department items from JSON (plain strings) for suggestions + combobox
+  const deptJsonItems = form.dept
+    ? (deptItemsMap[form.dept] || deptItemsMap[form.dept.toUpperCase()] || [])
+    : [];
 
-  const suggestedChips = getSuggestedChips();
+  // Quick-add suggestion chips: first 5 items from the JSON for the selected dept
+  const suggestedChips = deptJsonItems.slice(0, 5);
 
   const load = (overrides = {}) =>
     fetch({ limit: LIMIT, sort: "created_at", order: "desc", status: statusFilter, ...overrides });
@@ -223,17 +325,46 @@ export default function IndentScreen() {
   };
   const removeRow = (idx) => setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
 
-  const addSuggestionChip = (chip) => {
+  // Add a suggestion chip (plain string name from dept JSON)
+  const addSuggestionChip = (itemName) => {
     setForm(prev => {
-      // Check if already in items
-      const exists = prev.items.some(it => it.name.toLowerCase() === chip.name.toLowerCase());
-      if (exists) return prev;
-
+      const exists = prev.items.some(it => it.name.toLowerCase() === itemName.toLowerCase());
+      if (exists) {
+        console.warn(`Item "${itemName}" already in list`);
+        return prev;
+      }
+      // Try to find matching stock for code/unit, else use defaults
+      const stockMatch = stocks.find(s => s.name.toLowerCase() === itemName.toLowerCase());
       const baseItems = (prev.items.length === 1 && !prev.items[0].name) ? [] : prev.items;
-      const newItems = [...baseItems, { name: chip.name, qty: "", unit: chip.unit, item_code: chip.item_code }];
-      fetchStockLevels([chip.name]);
-      return { ...prev, items: newItems };
+      const newRow = {
+        id: Date.now() + Math.random(),
+        name: itemName,
+        qty: "",
+        unit: stockMatch?.unit || "kg",
+        item_code: stockMatch?.item_code || "",
+        notes: ""
+      };
+      fetchStockLevels([itemName]);
+      return { ...prev, items: [...baseItems, newRow] };
     });
+  };
+
+  // Select an item from the combobox dropdown
+  const selectComboItem = (idx, itemName) => {
+    const stockMatch = stocks.find(s => s.name.toLowerCase() === itemName.toLowerCase());
+    setForm(f => {
+      const newItems = f.items.map((it, i) => {
+        if (i !== idx) return it;
+        return {
+          ...it,
+          name: itemName,
+          unit: stockMatch?.unit || it.unit || "kg",
+          item_code: stockMatch?.item_code || it.item_code || "",
+        };
+      });
+      return { ...f, items: newItems };
+    });
+    if (stockMatch) fetchStockLevels([itemName]);
   };
 
   const addSelectedItems = () => {
@@ -557,18 +688,19 @@ export default function IndentScreen() {
                 <input className="indent-field" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
               </div>
 
-              {/* Quick Add Suggestions */}
-              {suggestedChips.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <p style={{ fontSize: 11, color: COLORS.muted, fontWeight: 500, marginBottom: 8 }}>Quick Add Suggestions</p>
+              {/* Quick Add Suggestions — sourced from department_items.json */}
+              {form.dept && suggestedChips.length > 0 && (
+                <div style={{ marginTop: 4, marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, color: "#6B7280", fontWeight: 500, marginBottom: 8, letterSpacing: "0.02em" }}>Quick Add Suggestions</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {suggestedChips.map(chip => (
+                    {suggestedChips.map(itemName => (
                       <button
-                        key={chip.name}
-                        onClick={() => addSuggestionChip(chip)}
+                        key={itemName}
+                        onClick={() => addSuggestionChip(itemName)}
                         className="chip-suggestion"
+                        title={`Add ${itemName}`}
                       >
-                        + {chip.name}
+                        <span style={{ marginRight: 3, fontSize: 12, lineHeight: 1 }}>+</span>{itemName}
                       </button>
                     ))}
                   </div>
@@ -664,14 +796,15 @@ export default function IndentScreen() {
                                 {item.item_code || "NEW"}
                               </span>
                             </td>
-                            <td>
-                              <input
-                                autoFocus={isActive}
+                            <td style={{ position: "relative" }}>
+                              <ItemNameCombobox
                                 value={item.name}
-                                onChange={(e) => updateItem(idx, "name", e.target.value)}
-                                placeholder="Item name"
-                                list="stock-names"
-                                className="excel-input"
+                                dept={form.dept}
+                                deptItems={deptJsonItems}
+                                stocks={stocks}
+                                autoFocus={isActive}
+                                onChange={(val) => updateItem(idx, "name", val)}
+                                onSelect={(name) => selectComboItem(idx, name)}
                               />
                             </td>
                             <td>
@@ -895,9 +1028,28 @@ export default function IndentScreen() {
         .indent-field:focus { border-color: #3b82f6; }
         
         .chip-suggestion {
-          background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 20px; padding: 4px 10px; fontSize: 11px; color: #475569; cursor: pointer; font-weight: 500; transition: all 0.15s;
+          background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 999px; padding: 4px 12px;
+          font-size: 12px; color: #15803D; cursor: pointer; font-weight: 500; transition: all 0.15s;
+          display: inline-flex; align-items: center; gap: 2px;
         }
-        .chip-suggestion:hover { border-color: #cbd5e1; background: #e2e8f0; color: #1e293b; }
+        .chip-suggestion:hover { background: #DCFCE7; border-color: #86EFAC; }
+
+        /* Item Name Combobox */
+        .item-combobox-wrap { position: relative; width: 100%; height: 100%; }
+        .item-combobox-input { width: 100%; height: 100%; border: none; background: transparent; padding: 10px; font-size: 13px; color: #1e293b; outline: none; box-sizing: border-box; }
+        .item-combobox-input:focus { background: white; }
+        .item-combobox-dropdown {
+          position: absolute; top: calc(100% + 2px); left: -1px; right: -1px;
+          background: #fff; border: 1px solid #E5E7EB; border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.10); z-index: 9999;
+          max-height: 200px; overflow-y: auto;
+        }
+        .item-combobox-option {
+          padding: 8px 12px; font-size: 13px; display: flex; justify-content: space-between;
+          align-items: center; cursor: pointer; transition: background 0.1s;
+        }
+        .item-combobox-option:hover, .item-combobox-option.active { background: #F9FAFB; }
+        .item-combobox-empty { padding: 10px 12px; font-size: 12px; color: #9CA3AF; }
         
         .action-btn {
           padding: 8px 10px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: all 0.15s; font-weight: 500; height: 40px;
