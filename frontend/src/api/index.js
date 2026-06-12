@@ -5,7 +5,7 @@ export const stock = {
   create: (body)   => api.post("/stock", body),
   update: (id, payload) => api.patch(`/stock/${id}`, payload),
   remove: (id)     => api.delete(`/stock/${id}`),
-  ledger:   () => api.get("/stock/ledger"),
+  ledger:   (params) => api.get("/stock/ledger", params),
   insights: () => api.get("/stock/insights"),
   available: (names) => api.get("/stock/available", { names: Array.isArray(names) ? names.join(",") : names }),
 };
@@ -14,11 +14,14 @@ export const indents = {
   list:         (params) => api.get("/indents", params),
   create:       (body)   => api.post("/indents", body),
   updateStatus: (id, status) => api.patch(`/indents/${id}`, { status }),
+  updateItems:  (id, items) => api.patch(`/indents/${id}/items`, { items }),
+  remove:       (id) => api.delete(`/indents/${id}`),
 };
 
 export const issuances = {
   list:   (params) => api.get("/issuances", params),
   create: (body)   => api.post("/issuances", body),
+  remove: (id)     => api.delete(`/issuances/${id}`),
 };
 
 export const production = {
@@ -34,6 +37,7 @@ export const leftovers = {
 export const dashboard = {
   summary:   (date)   => api.get("/dashboard", { date }),
   analytics: (params) => api.get("/dashboard/analytics", params),
+  procurement: (params) => api.get("/dashboard/procurement", params),
 };
 
 export const search = {

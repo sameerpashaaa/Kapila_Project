@@ -7,7 +7,10 @@ const ACCESS_TTL = process.env.JWT_ACCESS_TTL || "15m";
 const REFRESH_DAYS = parseInt(process.env.REFRESH_TOKEN_DAYS || "7", 10);
 
 function jwtSecret() {
-  return process.env.JWT_SECRET || "dev-only-kapila-secret-change-me";
+  if (!process.env.JWT_SECRET) {
+    throw new Error("FATAL: JWT_SECRET environment variable is missing.");
+  }
+  return process.env.JWT_SECRET;
 }
 
 function signAccessToken(user) {
@@ -31,6 +34,11 @@ function hashToken(token) {
 }
 
 async function issueRefreshToken(userId, req) {
+  // DB-03: Cleanup expired tokens periodically to prevent unbound growth
+  if (Math.random() < 0.1) {
+    await db("refresh_tokens").where("expires_at", "<", new Date()).delete().catch(() => {});
+  }
+
   const token = createOpaqueToken();
   const expiresAt = new Date(Date.now() + REFRESH_DAYS * 24 * 60 * 60 * 1000);
   await db("refresh_tokens").insert({

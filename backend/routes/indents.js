@@ -7,5 +7,7 @@ const { requirePermission, requireAnyPermission } = require("../middleware/autho
 router.get("/",      requirePermission("indents.view"), paginate(["date", "created_at", "dept", "status"]), ctrl.list);
 router.post("/",     requirePermission("indents.create"), validate("indent"), ctrl.create);
 router.patch("/:id", requirePermission("indents.approve"), ctrl.updateStatus);
+router.patch("/:id/items", requirePermission("indents.edit"), ctrl.updateItems);
+router.delete("/:id", requirePermission("indents.delete"), ctrl.remove);
 
 module.exports = router;

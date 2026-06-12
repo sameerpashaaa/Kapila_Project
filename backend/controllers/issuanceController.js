@@ -116,4 +116,59 @@ async function create(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { list, create };
+// DELETE /api/issuances/:id
+async function remove(req, res, next) {
+  try {
+    const iss = await db("issuances").where("id", req.params.id).first();
+    if (!iss) return res.status(404).json({ success: false, error: "Not found" });
+
+    await assertDepartmentAccess(req.user, iss.dept);
+
+    await db.transaction(async (trx) => {
+      const items = await trx("issuance_items").where("issuance_id", iss.id);
+
+      // Revert stock
+      for (const it of items) {
+        let toRevert = parseFloat(it.issued);
+        if (toRevert <= 0) continue;
+
+        // Try to find the newest batch for this item to add back the stock
+        const lastBatch = await trx("stock")
+          .whereRaw("LOWER(name) = LOWER(?)", [it.name])
+          .orderBy("date", "desc")
+          .orderBy("id", "desc")
+          .first();
+
+        if (lastBatch) {
+          await trx("stock")
+            .where("id", lastBatch.id)
+            .update({ remaining: parseFloat(lastBatch.remaining) + toRevert });
+        } else {
+          // If no batch exists, we should recreate one, but ideally they exist.
+          // Let's create a generic batch
+          const todayStr = new Date().toISOString().slice(0, 10);
+          await trx("stock").insert({
+            name: it.name,
+            qty: toRevert,
+            remaining: toRevert,
+            unit: it.unit,
+            date: todayStr,
+            item_code: it.item_code || "KPL-NEW",
+          });
+        }
+      }
+
+      // Revert indent if linked
+      if (iss.indent_id) {
+        await trx("indents").where("id", iss.indent_id).update({ status: "pending" });
+      }
+
+      await trx("issuance_items").where("issuance_id", iss.id).delete();
+      await trx("issuances").where("id", iss.id).delete();
+    });
+
+    res.json({ success: true, message: "Issuance deleted and stock reverted." });
+  } catch (err) { next(err); }
+}
+
+module.exports = { list, create, remove };

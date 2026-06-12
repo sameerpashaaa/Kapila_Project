@@ -1,7 +1,7 @@
 const { z } = require("zod");
 
 const UNITS = ["kg", "g", "L", "ml", "pcs", "dozen", "box", "plates", "portions"];
-const DEPTS = ["South Indian", "North Indian", "Continental", "Juices", "Bakery", "Chinese"];
+
 const STATUSES = ["pending", "issued", "cancelled"];
 
 const schemas = {
@@ -105,4 +105,4 @@ const validate = (schemaName) => (req, res, next) => {
   }
 };
 
-module.exports = { validate, DEPTS, UNITS };
+module.exports = { validate, UNITS };

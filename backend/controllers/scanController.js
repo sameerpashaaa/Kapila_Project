@@ -38,10 +38,19 @@ async function scanIndent(req, res, next) {
       item_code: nameToCodeMap[it.name.trim().toLowerCase()] || "KPL-NEW",
     }));
 
+    // 3.5 Validate department
+    let finalDept = "SI-MEALS"; // Default safe fallback
+    if (parsed.dept) {
+      const deptExists = await db("departments").whereRaw("LOWER(name) = LOWER(?)", [parsed.dept.trim()]).first();
+      if (deptExists) {
+        finalDept = deptExists.name;
+      }
+    }
+
     // 4. Save as pending indent
     const todayStr = new Date().toISOString().slice(0, 10);
     const [indent] = await db("indents")
-      .insert({ dept: parsed.dept || "South Indian", date: todayStr, status: "pending" })
+      .insert({ dept: finalDept, date: todayStr, status: "pending" })
       .returning("*");
 
     const rows = enrichedItems.map((it) => ({

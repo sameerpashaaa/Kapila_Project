@@ -7,10 +7,12 @@
     "start": "node server.js",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
-    "seed": "knex seed:run"
+    "seed": "knex seed:run",
+    "cleanup:tokens": "node scripts/cleanup_tokens.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

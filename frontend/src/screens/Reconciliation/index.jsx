@@ -9,7 +9,7 @@ import { useAppContext } from "../../context/AppContext";
 import * as api from "../../api";
 
 const REASONS = ["Audit Correction", "Damage", "Theft", "Expiry Write-off", "Other"];
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 const emptyItem = { item_code: "", name: "", physical_qty: "", reason: REASONS[0], notes: "" };
 
 export default function ReconciliationScreen() {

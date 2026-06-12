@@ -148,19 +148,22 @@ async function update(req, res, next) {
       delta = targetRem - current.remaining;
     }
 
-    const [row] = await db("stock").where("id", req.params.id)
-      .update(updates).returning("*");
+    const row = await db.transaction(async (trx) => {
+      const [updatedRow] = await trx("stock").where("id", req.params.id)
+        .update(updates).returning("*");
 
-    if (remaining !== undefined && delta !== 0) {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      await db("stock_adjustments").insert({
-        stock_id: req.params.id,
-        qty: delta,
-        reason: reason || "Audit Correction",
-        date: todayStr,
-        notes: notes || null
-      });
-    }
+      if (remaining !== undefined && delta !== 0) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        await trx("stock_adjustments").insert({
+          stock_id: req.params.id,
+          qty: delta,
+          reason: reason || "Audit Correction",
+          date: todayStr,
+          notes: notes || null
+        });
+      }
+      return updatedRow;
+    });
 
     res.json({ success: true, data: row });
   } catch (err) { next(err); }
@@ -178,6 +181,8 @@ async function remove(req, res, next) {
 // GET /api/stock/ledger
 async function getLedger(req, res, next) {
   try {
+    const { offset = 0, limit = 50 } = req.pagination || { offset: 0, limit: 50 };
+
     const purchases = db("stock")
       .select("date", "name", db.raw("'Purchase' as type"), "qty", "price", "supplier as detail", "created_at", "item_code");
       
@@ -209,7 +214,10 @@ async function getLedger(req, res, next) {
     const ledger = [...pList, ...iList, ...lList, ...aList]
       .sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
 
-    res.json({ success: true, data: ledger.slice(0, 100) });
+    const total = ledger.length;
+    const paginated = ledger.slice(offset, offset + limit);
+
+    res.json({ success: true, data: paginated, total, page: req.pagination?.page || 1, limit });
   } catch (err) { next(err); }
 }
 

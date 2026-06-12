@@ -11,7 +11,7 @@ import * as api from "../../api";
 import { Plus, ArrowLeft, FileText, Truck, CheckCircle, XCircle, Clock, ChevronRight } from "lucide-react";
 
 const LIMIT = 20;
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 
 const STATUS_CONFIG = {
   Draft:     { bg: "#f1f5f9", text: "#64748b", icon: <Clock size={11} />, dot: "#94a3b8" },

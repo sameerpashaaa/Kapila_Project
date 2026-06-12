@@ -7,7 +7,7 @@ import ProtectedScreen from "./components/ProtectedScreen";
 import { 
   LayoutDashboard, Package, Factory, Building2, Receipt, Inbox, Bell, 
   Scale, ArrowLeftRight, CalendarRange, ClipboardList, Send, ChefHat, 
-  ArchiveRestore, Trash2, Search, Users, ShieldCheck, LogOut
+  ArchiveRestore, Trash2, Search, Users, ShieldCheck, LogOut, BarChart3
 } from "lucide-react";
 
 import Dashboard      from "./screens/Dashboard";
@@ -69,7 +69,7 @@ const NAV_CATEGORIES = [
       { id: "production",   label: "Daily Production",permission: "production.view", icon: <ChefHat size={16} /> },
       { id: "leftover",     label: "Leftovers Logs",  permission: "leftovers.view", icon: <ArchiveRestore size={16} /> },
       { id: "waste_analytics", label: "Waste Analytics", permission: "waste_analytics.view", icon: <Trash2 size={16} /> },
-      { id: "chef_stats",    label: "Chef Statistics",  permission: "chef_stats.view", icon: <ChefHat size={16} /> },
+      { id: "chef_stats",    label: "Chef Statistics",  permission: "chef_stats.view", icon: <BarChart3 size={16} /> },
     ]
   },
   {
@@ -153,7 +153,21 @@ function Inner() {
   const primaryRole = roles[0]?.name || "User";
 
   if (loading) {
-    return <div style={{ height: "100vh", display: "grid", placeItems: "center", color: COLORS.text }}>Loading...</div>;
+    return (
+      <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: COLORS.bg, gap: 16 }}>
+        <style>{`
+          @keyframes spin { 100% { transform: rotate(360deg); } }
+        `}</style>
+        <div style={{
+          width: 40, height: 40,
+          border: `3px solid ${COLORS.border}`,
+          borderTopColor: COLORS.brand,
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite"
+        }} />
+        <p style={{ color: COLORS.muted, fontSize: 14, fontWeight: 500 }}>Initializing Kapila IMS...</p>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
@@ -218,8 +232,8 @@ function Inner() {
 
           {/* User Profile */}
           <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid var(--sidebar-border)" }}>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--color-accent-primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "var(--color-accent-primary)" }}>
-              K
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: COLORS.brand + "20", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: COLORS.brand }} title={user?.name}>
+              {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
             </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#1F2937" }}>{user?.name || "Kapila User"}</div>
@@ -327,6 +341,7 @@ function Inner() {
             {isMobile && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
+                aria-label="Open sidebar"
                 style={{ background: "none", border: "none", fontSize: 20, color: COLORS.text, cursor: "pointer", display: "flex", padding: 4 }}
               >
                 ☰
@@ -338,25 +353,16 @@ function Inner() {
               </span>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", background: "#F3F4F6", borderRadius: 20, padding: "6px 12px", gap: 6 }}>
-                <Search size={14} color="#9CA3AF" />
-                <input placeholder="Search..." style={{ border: "none", background: "transparent", fontSize: 13, color: "#1F2937", outline: "none", width: 160 }} />
-              </div>
-              <div style={{ position: "relative", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", background: "#F3F4F6" }}>
-                <Bell size={16} color="#6B7280" />
-                <div style={{ position: "absolute", top: 6, right: 6, width: 6, height: 6, borderRadius: "50%", background: COLORS.danger }}></div>
-              </div>
-              <button onClick={logout} title="Logout" style={{ width: 32, height: 32, borderRadius: "50%", background: "#F3F4F6", border: "none", display: "grid", placeItems: "center" }}>
-                <LogOut size={15} color="#6B7280" />
+              <button onClick={logout} title="Logout" aria-label="Logout" style={{ width: 32, height: 32, borderRadius: "50%", background: COLORS.surface, border: `1px solid ${COLORS.border}`, display: "grid", placeItems: "center", cursor: "pointer" }}>
+                <LogOut size={15} color={COLORS.muted} />
               </button>
               <div style={{
                 width: 32, height: 32, borderRadius: "50%",
                 background: COLORS.brand + "20",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 13, fontWeight: 700, color: COLORS.brand,
-                cursor: "pointer"
-              }}>
-                K
+                fontWeight: 600, color: COLORS.brand, fontSize: 13
+              }} title={user?.name}>
+                {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
               </div>
             </div>
           </header>

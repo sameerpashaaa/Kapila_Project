@@ -7,7 +7,7 @@ import { COLORS } from "../../styles/colors";
 import IssuanceTopSection from "./components/IssuanceTopSection";
 import IssuanceHistory from "./components/IssuanceHistory";
 
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 const LIMIT = 20;
 
 export default function StoreIssuancePage() {

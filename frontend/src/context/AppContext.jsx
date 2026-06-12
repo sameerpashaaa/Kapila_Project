@@ -13,7 +13,7 @@ export function AppProvider({ children }) {
 
   const refreshStockNames = useCallback(async () => {
     try {
-      const res = await api.stock.list({ limit: 200, sort: "name", order: "asc" });
+      const res = await api.stock.list({ limit: 5000, sort: "name", order: "asc" });
       setStocks(res.data || []);
       setStockNames((res.data || []).map((s) => s.name));
     } catch {}

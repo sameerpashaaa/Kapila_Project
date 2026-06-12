@@ -1,14 +1,21 @@
 require("dotenv").config();
+
+if (!process.env.JWT_SECRET) {
+  console.error("CRITICAL: JWT_SECRET environment variable is missing.");
+  process.exit(1);
+}
 const express      = require("express");
 const cors         = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet       = require("helmet");
+const compression  = require("compression");
 const errorHandler = require("./middleware/errorHandler");
 const { authenticate } = require("./middleware/auth");
 const { checkOllamaHealth } = require("./services/localAI");
 
 const app = express();
 app.use(helmet());
+app.use(compression());
 app.use(cors({
   origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
   credentials: true,
@@ -44,7 +51,7 @@ app.use("/api/chef-stats",  require("./routes/chefStats"));
 app.use("/api",                 require("./routes/recipes"));
 
 // Local AI health check — tells the frontend if Ollama is up and model loaded
-app.get("/api/ai-health", async (req, res) => {
+app.get("/api/ai-health", authenticate, async (req, res) => {
   const status = await checkOllamaHealth();
   res.status(status.ok ? 200 : 503).json(status);
 });

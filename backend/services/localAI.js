@@ -71,13 +71,13 @@ async function structureWithOllama(rawText, task) {
 // ── Prompt builder ─────────────────────────────────────────────────────────
 function buildPrompt(task, rawText) {
   const VALID_UNITS = "kg, g, L, ml, pcs, dozen, box, plates, portions";
-  const VALID_DEPTS = "South Indian, North Indian, Continental, Juices, Bakery, Chinese";
+  const VALID_DEPTS = "TIFFINS, STAFF, SI-MEALS, NORTH INDIAN, CHAT & SOFTY, CHINESE & DOSA, MOCKTAILS & CONTINENTAL, RESTAURANT, ROOM SERVICE";
 
   const prompts = {
     indent: `You are an OCR parser for a hotel kitchen inventory system.
 Extract all indent/requisition items from the text below.
 For each item: name (string), qty (number), unit (one of: ${VALID_UNITS}, default kg).
-Determine the requesting department (one of: ${VALID_DEPTS}, default South Indian).
+Determine the requesting department (one of: ${VALID_DEPTS}, default SI-MEALS).
 Return ONLY valid JSON with keys "dept" (string) and "items" (array of {name, qty, unit}).
 No markdown, no explanation. Just JSON.
 

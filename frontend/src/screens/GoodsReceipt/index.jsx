@@ -13,7 +13,7 @@ import * as api from "../../api";
 import SupplierDocUpload from "./SupplierDocUpload";
 
 const LIMIT = 20;
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 const emptyItem = { item_code: "", name: "", qty_ordered: "", qty_received: "", qty_accepted: "", qty_rejected: "0", unit: UNITS[0], unit_price: "", landed_cost: "", batch_no: "", expiry_date: "", discrepancy_reason: "" };
 
 export default function GoodsReceiptScreen() {

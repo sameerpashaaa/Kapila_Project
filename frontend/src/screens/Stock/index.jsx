@@ -21,7 +21,7 @@ import {
   Send
 } from "lucide-react";
 
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 const LIMIT = 20;
 
 const formatDate = (dateStr) => {
@@ -90,99 +90,14 @@ const getInitialsAvatar = (name) => {
 };
 
 
-const PriceTrendChart = ({ points }) => {
-  if (!points || points.length < 2) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 160, background: COLORS.bg + "44", borderRadius: 6, border: `1px dashed ${COLORS.border}` }}>
-        <p style={{ color: COLORS.muted, fontSize: 12 }}>Need at least 2 price records to plot trend</p>
-      </div>
-    );
-  }
-
-  const width = 450;
-  const height = 150;
-  const padding = { top: 15, right: 15, bottom: 20, left: 35 };
-
-  const prices = points.map(p => parseFloat(p.price));
-  const minPrice = Math.min(...prices) * 0.9;
-  const maxPrice = Math.max(...prices) * 1.1;
-  const priceRange = maxPrice - minPrice;
-
-  const getX = (idx) => {
-    return padding.left + (idx / (points.length - 1)) * (width - padding.left - padding.right);
-  };
-
-  const getY = (val) => {
-    return height - padding.bottom - ((val - minPrice) / priceRange) * (height - padding.top - padding.bottom);
-  };
-
-  let pathD = "";
-  let areaD = "";
-  points.forEach((p, idx) => {
-    const x = getX(idx);
-    const y = getY(parseFloat(p.price));
-    if (idx === 0) {
-      pathD = `M ${x} ${y}`;
-      areaD = `M ${x} ${height - padding.bottom} L ${x} ${y}`;
-    } else {
-      pathD += ` L ${x} ${y}`;
-      areaD += ` L ${x} ${y}`;
-    }
-    if (idx === points.length - 1) {
-      areaD += ` L ${x} ${height - padding.bottom} Z`;
-    }
-  });
-
-  return (
-    <div style={{ background: COLORS.bg + "55", borderRadius: 6, padding: 12, border: `1px solid ${COLORS.border}44` }}>
-      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} style={{ overflow: "visible" }}>
-        <defs>
-          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COLORS.brand} stopOpacity="0.3"/>
-            <stop offset="100%" stopColor={COLORS.brand} stopOpacity="0.0"/>
-          </linearGradient>
-        </defs>
-
-        {[0, 0.5, 1].map((r, i) => {
-          const val = minPrice + r * priceRange;
-          const y = getY(val);
-          return (
-            <g key={i}>
-              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={COLORS.border} strokeWidth="0.5" strokeDasharray="3,3" />
-              <text x={padding.left - 6} y={y + 3} fill={COLORS.muted} fontSize="8" textAnchor="end">₹{val.toFixed(0)}</text>
-            </g>
-          );
-        })}
-
-        <path d={areaD} fill="url(#chartGrad)" />
-        <path d={pathD} fill="none" stroke={COLORS.brand} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-        {points.map((p, idx) => {
-          const x = getX(idx);
-          const y = getY(parseFloat(p.price));
-          return (
-            <g key={idx} style={{ cursor: "pointer" }}>
-              <circle cx={x} cy={y} r="4" fill={COLORS.bg} stroke={COLORS.brand} strokeWidth="2" />
-              <title>{`${p.date}\n₹${parseFloat(p.price).toFixed(2)}/unit\nSupplier: ${p.supplier || '—'}`}</title>
-            </g>
-          );
-        })}
-
-        {points.map((p, idx) => {
-          if (idx === 0 || idx === points.length - 1 || points.length <= 5) {
-            const x = getX(idx);
-            return (
-              <text key={idx} x={x} y={height - 4} fill={COLORS.muted} fontSize="8" textAnchor="middle">
-                {p.date.slice(5)}
-              </text>
-            );
-          }
-          return null;
-        })}
-      </svg>
-    </div>
-  );
-};
+import PriceTrendChart from "./PriceTrendChart";
+import StockStats from "./StockStats";
+import LedgerTab from "./LedgerTab";
+import ProcurementTab from "./ProcurementTab";
+import InsightsTab from "./InsightsTab";
+import PrintPreviewModal from "./PrintPreviewModal";
+import QuickAdjustmentModal from "./QuickAdjustmentModal";
+import StoreAlertsPanel from "./StoreAlertsPanel";
 
 export default function StockScreen() {
   const { stockNames, stocks, refreshStockNames } = useAppContext();
@@ -228,14 +143,19 @@ export default function StockScreen() {
   const [procurementLoading, setProcurementLoading] = useState(false);
   const [ledgerData, setLedgerData] = useState([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const [ledgerTotal, setLedgerTotal] = useState(0);
   const [insightsData, setInsightsData] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
 
-  const loadLedger = async () => {
+  const loadLedger = async (params = {}) => {
     setLedgerLoading(true);
     try {
-      const res = await api.stock.ledger();
+      const p = params.page || ledgerPage;
+      const res = await api.stock.ledger({ page: p, limit: LIMIT });
       setLedgerData(res.data || []);
+      setLedgerTotal(res.total || 0);
+      setLedgerPage(p);
     } catch {}
     setLedgerLoading(false);
   };
@@ -762,55 +682,14 @@ export default function StockScreen() {
     });
   };
 
-  const isTotalActive = filters.low_stock === "" && filters.active_only === "";
-  const isActiveActive = filters.active_only === "true";
-  const isLowActive = filters.low_stock === "true";
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%" }}>
       {/* KPI Strip */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-        {[ 
-          { id: "total", label: "Total Active Spend", value: stats.total_spend, color: COLORS.teal, icon: <Banknote size={20} /> },
-          { id: "active", label: "Current Store Value", value: stats.store_value, color: COLORS.accent, icon: <PackageOpen size={20} /> },
-          { id: "low", label: "Low Stock Value", value: stats.low_stock_value, color: COLORS.danger, icon: <AlertTriangle size={20} /> }
-        ].map((kpi) => {
-          const isActive = (kpi.id === "total" && isTotalActive) || (kpi.id === "active" && isActiveActive) || (kpi.id === "low" && isLowActive);
-          return (
-            <Card
-              key={kpi.id}
-              onClick={() => handleStatCardClick(kpi.id)}
-              style={{ 
-                flex: 1,
-                padding: "14px 20px", 
-                display: "flex", 
-                alignItems: "center", 
-                gap: 14, 
-                cursor: "pointer", 
-                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                border: `1px solid ${COLORS.border}`,
-                borderTop: isActive ? `3px solid ${kpi.color}` : `1px solid ${COLORS.border}`,
-                boxShadow: isActive ? "0 4px 12px rgba(0,0,0,0.06)" : "none",
-                transform: isActive ? "translateY(-1px)" : "none",
-                paddingTop: isActive ? "12px" : "14px" // offset to keep overall height consistent
-              }}
-            >
-              <div style={{ 
-                display: "flex", alignItems: "center", justifyContent: "center", 
-                width: 40, height: 40, borderRadius: 8, 
-                background: kpi.color + "15", color: kpi.color,
-                flexShrink: 0
-              }}>
-                {kpi.icon}
-              </div>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 500, color: COLORS.muted, marginBottom: 2 }}>{kpi.label}</p>
-                <p style={{ fontSize: 24, fontWeight: 700, color: COLORS.text, lineHeight: 1.1 }}>₹{parseFloat(kpi.value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      <StockStats 
+        stats={stats} 
+        filters={filters} 
+        handleStatCardClick={handleStatCardClick} 
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, flex: 1, minHeight: 0 }}>
         {/* List */}
@@ -1302,734 +1181,61 @@ export default function StockScreen() {
           )}
 
           {activeTab === "ledger" && (
-            ledgerLoading ? (
-              <p style={{ color: COLORS.muted, textAlign: "center", padding: 32 }}>Loading ledger…</p>
-            ) : ledgerData.length === 0 ? (
-              <p style={{ color: COLORS.muted, textAlign: "center", padding: 40 }}>No stock movement recorded yet</p>
-            ) : (
-              <div style={{ overflowY: "auto", maxHeight: 420, padding: "14px 20px" }}>
-                <table style={{ borderCollapse: "separate", borderSpacing: "0 6px" }}>
-                  <thead>
-                    <tr>
-                      <th style={{ background: "transparent" }}>Date</th>
-                      <th style={{ background: "transparent" }}>Item</th>
-                      <th style={{ background: "transparent" }}>Action</th>
-                      <th style={{ background: "transparent" }}>Qty</th>
-                      <th style={{ background: "transparent" }}>Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ledgerData.map((item, index) => {
-                      const isPurchase = item.type === "Purchase";
-                      const isIssue = item.type === "Issue";
-                      const typeColor = isPurchase ? COLORS.teal : isIssue ? COLORS.accent : COLORS.purple;
-                      const typeBg = isPurchase ? COLORS.teal + "15" : isIssue ? COLORS.accent + "15" : COLORS.purple + "15";
-                      
-                      return (
-                        <tr key={index} style={{ background: COLORS.bg + "44" }}>
-                          <td style={{ color: COLORS.muted, padding: "10px 14px" }}>{item.date}</td>
-                          <td style={{ fontWeight: 600, padding: "10px 14px" }}>
-                            <span style={{ color: COLORS.accent, fontSize: 10, display: "block", fontWeight: 600 }}>{item.item_code || "KPL-NEW"}</span>
-                            {item.name}
-                          </td>
-                          <td style={{ padding: "10px 14px" }}>
-                            <span className="badge" style={{ background: typeBg, color: typeColor, textTransform: "uppercase", fontSize: 10 }}>
-                              {item.type}
-                            </span>
-                          </td>
-                          <td style={{ color: isPurchase ? COLORS.success : isIssue ? COLORS.coral : COLORS.text, fontWeight: 500, padding: "10px 14px" }}>
-                            {isPurchase ? "+" : isIssue ? "-" : ""}{item.qty}
-                          </td>
-                          <td style={{ color: COLORS.muted, fontSize: 12, padding: "10px 14px" }}>
-                            {isPurchase ? `From ${item.detail || "Unknown"}` : isIssue ? `Issued to ${item.detail}` : `Detail: ${item.detail}`}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
+            <LedgerTab 
+              ledgerLoading={ledgerLoading} 
+              ledgerData={ledgerData} 
+              ledgerPage={ledgerPage}
+              ledgerTotal={ledgerTotal}
+              limit={LIMIT}
+              onPage={(p) => loadLedger({ page: p })}
+            />
           )}
 
           {activeTab === "insights" && (
-            insightsLoading ? (
-              <p style={{ color: COLORS.muted, textAlign: "center", padding: 32 }}>Loading insights…</p>
-            ) : !insightsData ? (
-              <p style={{ color: COLORS.muted, textAlign: "center", padding: 40 }}>No insights available</p>
-            ) : (() => {
-              const trendNames = Array.from(new Set((insightsData.priceTrends || []).map(p => p.name)));
-              const currentChartItem = chartItem || trendNames[0] || "";
-              const points = (insightsData.priceTrends || [])
-                .filter(p => p.name === currentChartItem)
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-              return (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 20, padding: 20, overflowY: "auto", maxHeight: 420 }}>
-                  <div>
-                    <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Active Supplier Spend</p>
-                    <table style={{ fontSize: 12, marginBottom: 20 }}>
-                      <thead><tr><th>Supplier</th><th>Batches</th><th>Active Spend</th></tr></thead>
-                      <tbody>
-                        {(insightsData.supplierSpend || []).map((row, i) => (
-                          <tr key={i}>
-                            <td style={{ fontWeight: 500 }}>{row.supplier}</td>
-                            <td>{row.batch_count}</td>
-                            <td style={{ color: COLORS.teal, fontWeight: 600 }}>₹{parseFloat(row.active_value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Historical Price Records</p>
-                    <div style={{ overflowY: "auto", maxHeight: 180, border: `1px solid ${COLORS.border}55`, borderRadius: 6, padding: "8px 12px" }}>
-                      {(insightsData.priceTrends || []).map((trend, idx) => (
-                        <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${COLORS.border}22`, padding: "6px 0", fontSize: 12 }}>
-                          <div>
-                            <span style={{ fontWeight: 600 }}>{trend.name}</span>
-                            <span style={{ fontSize: 10, color: COLORS.muted, marginLeft: 8 }}>{trend.date}</span>
-                            <span style={{ display: "block", fontSize: 10, color: COLORS.muted }}>Supplier: {trend.supplier || "—"}</span>
-                          </div>
-                          <span style={{ color: COLORS.accent, fontWeight: 600 }}>₹{parseFloat(trend.price || 0).toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>📈 Price Trend Visualizer</p>
-                      <select
-                        value={currentChartItem}
-                        onChange={(e) => { setChartItem(e.target.value); }}
-                        style={{ width: 150, padding: "4px 8px", fontSize: 11, height: "26px" }}
-                      >
-                        {trendNames.map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                    {currentChartItem ? (
-                      <div>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: COLORS.accent, marginBottom: 8 }}>{currentChartItem} Price Index</p>
-                        <PriceTrendChart points={points} />
-                      </div>
-                    ) : (
-                      <p style={{ color: COLORS.muted, fontSize: 12, textAlign: "center", padding: 40 }}>No price records to chart</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })()
+            <InsightsTab 
+              insightsLoading={insightsLoading} 
+              insightsData={insightsData} 
+              chartItem={chartItem} 
+              setChartItem={setChartItem} 
+            />
           )}
 
           {activeTab === "procurement" && (
-            procurementLoading ? (
-              <p style={{ color: COLORS.muted, textAlign: "center", padding: 32 }}>Loading procurement data…</p>
-            ) : !procurementData ? (
-              <p style={{ color: COLORS.muted, textAlign: "center", padding: 40 }}>No procurement data yet</p>
-            ) : (
-              <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, overflowY: "auto", maxHeight: 420 }}>
-
-                {/* Recent POs */}
-                <div>
-                  <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Recent Purchase Orders</p>
-                  {procurementData.recentPOs.length === 0 ? (
-                    <p style={{ color: COLORS.muted, fontSize: 12 }}>No POs yet.</p>
-                  ) : (
-                    <table style={{ fontSize: 12 }}>
-                      <thead><tr><th>PO #</th><th>Supplier</th><th>Date</th><th>Status</th><th>Total</th></tr></thead>
-                      <tbody>
-                        {procurementData.recentPOs.map((po) => {
-                          const statusColor = { Draft: COLORS.muted, Sent: COLORS.accent, Received: COLORS.success, Cancelled: COLORS.coral }[po.status] || COLORS.muted;
-                          return (
-                            <tr key={po.id}>
-                              <td style={{ fontFamily: "monospace", color: COLORS.teal, fontSize: 11 }}>{po.po_number}</td>
-                              <td style={{ fontWeight: 500 }}>{po.supplier_name}</td>
-                              <td style={{ color: COLORS.muted }}>{po.date}</td>
-                              <td><span style={{ background: statusColor + "22", color: statusColor, padding: "1px 7px", borderRadius: 20, fontSize: 10, fontWeight: 600 }}>{po.status}</span></td>
-                              <td style={{ color: COLORS.accent, fontWeight: 600 }}>₹{parseFloat(po.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
-                {/* Recent GRNs */}
-                <div>
-                  <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Recent Goods Receipts</p>
-                  {procurementData.recentGRNs.length === 0 ? (
-                    <p style={{ color: COLORS.muted, fontSize: 12 }}>No GRNs yet.</p>
-                  ) : (
-                    <table style={{ fontSize: 12 }}>
-                      <thead><tr><th>GRN #</th><th>Supplier</th><th>Date</th><th>Invoice</th><th>Total</th></tr></thead>
-                      <tbody>
-                        {procurementData.recentGRNs.map((g) => (
-                          <tr key={g.id}>
-                            <td style={{ fontFamily: "monospace", color: COLORS.teal, fontSize: 11 }}>{g.grn_number}</td>
-                            <td style={{ fontWeight: 500 }}>{g.supplier_name}</td>
-                            <td style={{ color: COLORS.muted }}>{g.date}</td>
-                            <td style={{ color: COLORS.muted, fontSize: 11 }}>{g.invoice_no || "—"}</td>
-                            <td style={{ color: COLORS.accent, fontWeight: 600 }}>₹{parseFloat(g.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
-                {/* Supplier master summary */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Registered Suppliers</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                    {procurementData.suppliers.length === 0 ? (
-                      <p style={{ color: COLORS.muted, fontSize: 12 }}>No suppliers registered. Go to Suppliers to add vendors.</p>
-                    ) : (
-                      procurementData.suppliers.map((s) => (
-                        <div key={s.id} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 14px", minWidth: 160 }}>
-                          <p style={{ fontWeight: 600, fontSize: 13, color: COLORS.text }}>{s.name}</p>
-                          {s.phone && <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 3 }}>📞 {s.phone}</p>}
-                          {s.gstin && <p style={{ fontSize: 10, color: COLORS.teal, marginTop: 3, fontFamily: "monospace" }}>{s.gstin}</p>}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-              </div>
-            )
+            <ProcurementTab procurementLoading={procurementLoading} procurementData={procurementData} />
           )}
 
          </Card>
 
       {/* Print Preview Modal */}
-      {printModalItem && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.65)", display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 1000,
-          backdropFilter: "blur(4px)"
-        }}>
-          <div style={{
-            background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-            borderRadius: 12, padding: 24, width: 450, maxWidth: "90%",
-            boxShadow: `0 8px 32px rgba(15, 23, 42, 0.15)`
-          }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-              <Printer size={18} /> Label Print Preview
-            </h3>
-            <p style={{ fontSize: 13, color: COLORS.muted, marginBottom: 20 }}>Verify layout specs for the 2.0" x 1.2" thermal printer label before dispatching print command.</p>
-            
-            {/* Label design container */}
-            <div style={{
-              background: "#fff", color: "#000", padding: "16px 20px", borderRadius: 6,
-              fontFamily: "'Courier New', monospace", fontSize: 12, minHeight: 120,
-              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.1)", display: "flex",
-              justifyContent: "space-between", alignItems: "center", marginBottom: 20,
-              border: "4px solid #fff", borderStyle: "double"
-            }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3, maxWidth: "60%", lineHeight: 1.1 }}>
-                <span style={{ fontSize: 13, fontWeight: "bold", letterSpacing: "0.05em" }}>{printModalItem.item_code}</span>
-                <span style={{ fontSize: 11, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{printModalItem.name}</span>
-                <span style={{ fontSize: 9 }}>Qty: {printModalItem.remaining} {printModalItem.unit}</span>
-                <span style={{ fontSize: 8 }}>Recd: {printModalItem.date}</span>
-                {printConfig.showExpiry && printModalItem.expiry_date && (
-                  <span style={{ fontSize: 8 }}>Exp: {printModalItem.expiry_date}</span>
-                )}
-                {printConfig.showPrice && printModalItem.price && (
-                  <span style={{ fontSize: 9, fontWeight: "bold", marginTop: 4 }}>Price: ₹{parseFloat(printModalItem.price).toFixed(2)}</span>
-                )}
-              </div>
-              
-              {/* Graphic element */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                {printConfig.labelFormat === "qr" ? (
-                  <img 
-                    src={printModalItem._qrDataUrl || ""}
-                    ref={(el) => { if (el && !printModalItem._qrDataUrl) QRCode.toDataURL(printModalItem.item_code, { width: 65, margin: 1 }).then(url => setPrintModalItem(p => ({ ...p, _qrDataUrl: url }))); }}
-                    style={{ width: 65, height: 65 }}
-                    alt="QR Code"
-                  />
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    {/* Simulated barcode bars */}
-                    <div style={{ display: "flex", height: 45, width: 75, alignItems: "stretch", background: "#000", padding: "0 2px" }}>
-                      {[2, 1, 3, 1, 2, 4, 1, 2, 3, 1, 2, 1, 3, 1, 2].map((w, i) => (
-                        <div key={i} style={{ flexGrow: w, background: i % 2 === 0 ? "#000" : "#fff" }} />
-                      ))}
-                    </div>
-                    <span style={{ fontSize: 8, marginTop: 2 }}>* {printModalItem.item_code} *</span>
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* Config Checkboxes */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", color: COLORS.text }}>
-                <input 
-                  type="checkbox" 
-                  checked={printConfig.showPrice} 
-                  onChange={(e) => setPrintConfig(prev => ({ ...prev, showPrice: e.target.checked }))}
-                  style={{ width: "auto", marginRight: 8 }}
-                />
-                Include Unit Cost / Price on label
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", color: COLORS.text }}>
-                <input 
-                  type="checkbox" 
-                  checked={printConfig.showExpiry} 
-                  onChange={(e) => setPrintConfig(prev => ({ ...prev, showExpiry: e.target.checked }))}
-                  style={{ width: "auto", marginRight: 8 }}
-                />
-                Include Expiry Date on label
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                <span style={{ fontSize: 13, color: COLORS.muted }}>Format:</span>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, cursor: "pointer", color: COLORS.text }}>
-                  <input 
-                    type="radio" 
-                    name="lblFormat" 
-                    checked={printConfig.labelFormat === "qr"} 
-                    onChange={() => setPrintConfig(prev => ({ ...prev, labelFormat: "qr" }))}
-                    style={{ width: "auto", marginRight: 4 }}
-                  />
-                  QR Code
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, cursor: "pointer", color: COLORS.text }}>
-                  <input 
-                    type="radio" 
-                    name="lblFormat" 
-                    checked={printConfig.labelFormat === "barcode"} 
-                    onChange={() => setPrintConfig(prev => ({ ...prev, labelFormat: "barcode" }))}
-                    style={{ width: "auto", marginRight: 4 }}
-                  />
-                  Classic Barcode
-                </label>
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div style={{ display: "flex", gap: 10 }}>
-              <Btn 
-              onClick={async () => {
-                  const printWindow = window.open("", "_blank", "width=400,height=300");
-                  let content;
-                  if (printConfig.labelFormat === "qr") {
-                    const url = await QRCode.toDataURL(printModalItem.item_code, { width: 100, margin: 1 });
-                    content = `<img class="qr" src="${url}" />`;
-                  } else {
-                    content = `
-                      <div class="barcode-container">
-                        <div class="barcode">
-                          ${[2, 1, 3, 1, 2, 4, 1, 2, 3, 1, 2, 1, 3, 1, 2].map((w, i) => `<div class="bar" style="flex-grow: ${w}; background: ${i % 2 === 0 ? "#000" : "#fff"}"></div>`).join("")}
-                        </div>
-                        <div class="barcode-text">* ${printModalItem.item_code} *</div>
-                      </div>
-                    `;
-                  }
-
-                  printWindow.document.write(`
-                    <html>
-                      <head>
-                        <title>Print Label - ${printModalItem.item_code}</title>
-                        <style>
-                          @page { size: 2in 1.2in; margin: 0; }
-                          body {
-                            font-family: 'Courier New', Courier, monospace;
-                            width: 1.9in;
-                            height: 1.1in;
-                            padding: 0.05in;
-                            margin: 0;
-                            box-sizing: border-box;
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            background: #fff;
-                            color: #000;
-                          }
-                          .info {
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                            font-size: 8px;
-                            line-height: 1.1;
-                            max-width: 1.1in;
-                          }
-                          .code {
-                            font-size: 10px;
-                            font-weight: bold;
-                            margin-bottom: 2px;
-                          }
-                          .name {
-                            font-size: 9px;
-                            font-weight: bold;
-                            white-space: nowrap;
-                            overflow: hidden;
-                            text-overflow: ellipsis;
-                          }
-                          .date {
-                            color: #555;
-                            font-size: 7px;
-                            margin-top: 1px;
-                          }
-                          .qr {
-                            width: 45px;
-                            height: 45px;
-                          }
-                          .barcode-container {
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                          }
-                          .barcode {
-                            display: flex;
-                            height: 35px;
-                            width: 60px;
-                          }
-                          .bar {
-                            height: 100%;
-                          }
-                          .barcode-text {
-                            font-size: 6px;
-                            margin-top: 2px;
-                          }
-                        </style>
-                      </head>
-                      <body>
-                        <div class="info">
-                          <div class="code">${printModalItem.item_code}</div>
-                          <div class="name">${printModalItem.name}</div>
-                          <div class="qty">Qty: ${printModalItem.remaining} ${printModalItem.unit}</div>
-                          <div class="date">Recd: ${printModalItem.date}</div>
-                          ${printConfig.showExpiry && printModalItem.expiry_date ? `<div class="date">Exp: ${printModalItem.expiry_date}</div>` : ""}
-                          ${printConfig.showPrice && printModalItem.price ? `<div class="date" style="font-weight:bold;">Price: ₹${parseFloat(printModalItem.price).toFixed(2)}</div>` : ""}
-                        </div>
-                        ${content}
-                        <script>window.onload = function() { window.print(); window.close(); }</script>
-                      </body>
-                    </html>
-                  `);
-                  printWindow.document.close();
-                  setPrintModalItem(null);
-                }} 
-                icon={<Printer size={16} />}
-                style={{ flex: 1 }}
-              >
-                Confirm Print
-              </Btn>
-              <Btn variant="ghost" onClick={() => setPrintModalItem(null)} style={{ border: `1px solid ${COLORS.border}`, flex: 1 }}>
-                Cancel
-              </Btn>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Quick Adjustment Modal */}
-      {adjustModalItem && (() => {
-        const currentQty = parseFloat(adjustModalItem.remaining || 0);
-        const targetQty = parseFloat(adjustQty) || 0;
-        const delta = targetQty - currentQty;
-        const isSurplus = delta > 0;
-        
-        const handleSaveAdjustment = async () => {
-          try {
-            await api.stock.update(adjustModalItem.id, {
-              remaining: targetQty,
-              min_alert_qty: adjustMinAlert.trim() === "" ? null : parseFloat(adjustMinAlert),
-              reason: adjustReason,
-              notes: adjustNotes.trim() === "" ? null : adjustNotes
-            });
-            setAdjustModalItem(null);
-            load();
-            refreshActiveTab();
-            setMsg("Batch adjustments successfully applied ✓");
-            setTimeout(() => setMsg(""), 3000);
-          } catch (e) {
-            setMsg("Error adjusting stock: " + e.message);
-            setTimeout(() => setMsg(""), 4000);
-          }
-        };
-
-        return (
-          <div style={{
-            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-            background: "rgba(15, 23, 42, 0.65)", display: "flex",
-            alignItems: "center", justifyContent: "center", zIndex: 1000,
-            backdropFilter: "blur(4px)"
-          }}>
-            <div style={{
-              background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-              borderRadius: 12, padding: 24, width: 450, maxWidth: "90%",
-              boxShadow: `0 8px 32px rgba(15, 23, 42, 0.15)`
-            }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                <Edit3 size={18} /> Quick Stock Adjustment
-              </h3>
-              <p style={{ fontSize: 13, color: COLORS.muted, marginBottom: 16 }}>
-                Adjusting batch code <span style={{ color: COLORS.purple, fontWeight: "bold" }}>{adjustModalItem.item_code}</span> of <span style={{ color: COLORS.text, fontWeight: "bold" }}>{adjustModalItem.name}</span>.
-              </p>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div>
-                  <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>System Remaining</label>
-                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, padding: "8px 12px", borderRadius: 6, fontSize: 13, fontWeight: "bold", color: COLORS.text }}>
-                    {currentQty.toFixed(2)} {adjustModalItem.unit}
-                  </div>
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Original Quantity</label>
-                  <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, padding: "8px 12px", borderRadius: 6, fontSize: 13, color: COLORS.muted }}>
-                    {parseFloat(adjustModalItem.qty).toFixed(2)} {adjustModalItem.unit}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 10, marginBottom: 16 }}>
-                <Input 
-                  label={`Adjusted Remaining (${adjustModalItem.unit})`}
-                  type="number"
-                  step="0.01"
-                  value={adjustQty}
-                  onChange={(e) => setAdjustQty(e.target.value)}
-                  placeholder="0.00"
-                />
-                <Input 
-                  label="Min Alert Level"
-                  type="number"
-                  step="0.01"
-                  value={adjustMinAlert}
-                  onChange={(e) => setAdjustMinAlert(e.target.value)}
-                  placeholder="e.g. 5.0"
-                />
-              </div>
-
-              {/* Real-time Delta visual feedback */}
-              {delta !== 0 && (
-                <div style={{
-                  background: isSurplus ? COLORS.teal + "11" : COLORS.coral + "11",
-                  border: `1px dashed ${isSurplus ? COLORS.teal : COLORS.coral}44`,
-                  borderRadius: 6, padding: "8px 12px", fontSize: 12, marginBottom: 16,
-                  display: "flex", justifyContent: "space-between", alignItems: "center"
-                }}>
-                  <span style={{ color: COLORS.muted }}>Reconciliation Delta:</span>
-                  <span style={{ fontWeight: "bold", color: isSurplus ? COLORS.success : COLORS.coral, fontSize: 13 }}>
-                    {isSurplus ? `+${delta.toFixed(2)}` : delta.toFixed(2)} {adjustModalItem.unit} ({isSurplus ? "Surplus / Ingress" : "Shrinkage / Waste"})
-                  </span>
-                </div>
-              )}
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Adjustment Reason</label>
-                <select
-                  value={adjustReason}
-                  onChange={(e) => setAdjustReason(e.target.value)}
-                  style={{
-                    width: "100%", padding: "8px 12px", fontSize: 12,
-                    background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-                    color: COLORS.text, borderRadius: 6
-                  }}
-                >
-                  <option value="Audit Correction">Audit Correction</option>
-                  <option value="Spoiled / Spilled">Spoiled / Spilled</option>
-                  <option value="Pest Damage">Pest Damage</option>
-                  <option value="Kitchen Theft">Kitchen Theft</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Audit Log Notes</label>
-                <textarea
-                  value={adjustNotes}
-                  onChange={(e) => setAdjustNotes(e.target.value)}
-                  placeholder="Provide supporting context for this adjustment..."
-                  rows={3}
-                  style={{
-                    width: "100%", padding: "8px 12px", fontSize: 12,
-                    background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-                    color: COLORS.text, borderRadius: 6, resize: "vertical"
-                  }}
-                />
-              </div>
-
-              {/* Action buttons */}
-              <div style={{ display: "flex", gap: 10 }}>
-                <Btn 
-                  onClick={handleSaveAdjustment} 
-                  disabled={adjustQty.trim() === "" || isNaN(targetQty) || targetQty < 0}
-                  icon={<CheckCircle size={16} />}
-                  style={{ flex: 1 }}
-                >
-                  Apply & Log Adjustment
-                </Btn>
-                <Btn variant="ghost" onClick={() => setAdjustModalItem(null)} style={{ border: `1px solid ${COLORS.border}`, flex: 1 }}>
-                  Cancel
-                </Btn>
-              </div>
-
-            </div>
-          </div>
-        );
-      })()}
+      <QuickAdjustmentModal 
+        adjustModalItem={adjustModalItem}
+        setAdjustModalItem={setAdjustModalItem}
+        adjustQty={adjustQty}
+        setAdjustQty={setAdjustQty}
+        adjustMinAlert={adjustMinAlert}
+        setAdjustMinAlert={setAdjustMinAlert}
+        adjustReason={adjustReason}
+        setAdjustReason={setAdjustReason}
+        adjustNotes={adjustNotes}
+        setAdjustNotes={setAdjustNotes}
+        load={load}
+        refreshActiveTab={refreshActiveTab}
+        setMsg={setMsg}
+      />
     {/* Right Panel containing Add Form and Low Stock Alerts */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Low Stock Alerts & Expiry Warnings Card */}
-          <Card style={{ padding: 16 }}>
-            {/* Header / Global Action */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, borderBottom: `1px solid ${COLORS.border}55`, paddingBottom: 10 }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-                  <AlertOctagon size={16} style={{ color: COLORS.danger }} /> Store Alerts
-                </p>
-                <p style={{ fontSize: 10, color: COLORS.muted, marginTop: 2 }}>Auto-evaluated warnings</p>
-              </div>
-              {lowStockItems.length > 0 && (
-                <div style={{ display: "flex", gap: 4 }}>
-                  <Btn variant="ghost" small onClick={copyPOToClipboard} icon={<ClipboardList size={12} />} style={{ fontSize: 11, padding: "4px 8px", border: `1px solid ${COLORS.border}` }} title="Copy Purchase Order to Clipboard">
-                    Copy PO
-                  </Btn>
-                  <Btn variant="ghost" small onClick={generateWhatsAppPO} icon={<Send size={12} />} style={{ fontSize: 11, padding: "4px 8px", background: "#25D36622", border: "1px solid #25D36644", color: "#25D366" }} title="Send Purchase Order to WhatsApp">
-                    Send PO
-                  </Btn>
-                </div>
-              )}
-            </div>
-
-            {/* Section 1: Low Stock alerts */}
-            <p style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-              <TrendingDown size={14} /> Low Stock Levels ({lowStockItems.length})
-            </p>
-            {lowStockItems.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6, marginBottom: 16 }}>
-                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <CheckCircle size={14} /> All levels healthy
-                </p>
-              </div>
-            ) : (
-              <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-                {lowStockItems.map((item) => {
-                  const pct = item.qty > 0 ? (item.remaining / item.qty) * 100 : 0;
-                  return (
-                    <div key={item.id} style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "12px 14px",
-                      background: COLORS.bg + "55",
-                      border: `1px solid ${COLORS.border}44`,
-                      borderLeft: `3px solid ${COLORS.danger}`,
-                      borderRadius: 6
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1 }}>
-                        {(() => {
-                          const avatar = getInitialsAvatar(item.name);
-                          return (
-                            <div style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: "50%",
-                              background: avatar.bg,
-                              color: avatar.fg,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 10,
-                              fontWeight: 600,
-                              flexShrink: 0
-                            }}>
-                              {avatar.text}
-                            </div>
-                          );
-                        })()}
-                        <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
-                          <span style={{ color: COLORS.accent, fontSize: 9, display: "block", fontWeight: 600 }}>{item.item_code}</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
-                          <span style={{ fontSize: 11, color: COLORS.danger, display: "block", marginTop: 2, fontWeight: 500 }}>
-                            {parseFloat(item.remaining).toFixed(1)} / {item.qty} {item.unit} ({pct.toFixed(0)}%)
-                          </span>
-                          <div style={{ height: 6, background: COLORS.border + "55", borderRadius: 3, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
-                            <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, pct))}%`, background: COLORS.danger }} />
-                          </div>
-                        </div>
-                      </div>
-                      <Btn variant="ghost" small onClick={() => handleReorderClick(item)} icon={<ShoppingCart size={12} />} title="Reorder" style={{ padding: "6px 8px" }} />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Section 2: Expiry warnings */}
-            <p style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock size={14} /> Spoilage & Expiry Alerts ({expiringSoonItems.length})
-            </p>
-            {expiringSoonItems.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "14px 0", background: COLORS.bg + "22", borderRadius: 6 }}>
-                <p style={{ fontSize: 11, color: COLORS.success, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <CheckCircle size={14} /> No near expiries
-                </p>
-              </div>
-            ) : (
-              <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-                {expiringSoonItems.map((item) => {
-                  const todayVal = new Date(today());
-                  const expiryVal = new Date(item.expiry_date);
-                  const diffTime = expiryVal - todayVal;
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                  return (
-                    <div key={item.id} style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "12px 14px",
-                      background: COLORS.bg + "55",
-                      border: `1px solid ${COLORS.border}44`,
-                      borderLeft: `3px solid ${COLORS.warning}`,
-                      borderRadius: 6
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1 }}>
-                        {(() => {
-                          const avatar = getInitialsAvatar(item.name);
-                          return (
-                            <div style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: "50%",
-                              background: avatar.bg,
-                              color: avatar.fg,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 10,
-                              fontWeight: 600,
-                              flexShrink: 0
-                            }}>
-                              {avatar.text}
-                            </div>
-                          );
-                        })()}
-                        <div style={{ overflow: "hidden", lineHeight: 1.2 }}>
-                          <span style={{ color: COLORS.accent, fontSize: 9, display: "block", fontWeight: 600 }}>{item.item_code}</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", color: COLORS.text }}>{item.name}</span>
-                          <span style={{ fontSize: 11, color: COLORS.danger, display: "block", marginTop: 2, fontWeight: 500 }}>
-                            {item.remaining} {item.unit} remaining
-                          </span>
-                          <div style={{ height: 6, background: COLORS.border + "55", borderRadius: 3, overflow: "hidden", marginTop: 4, width: "100%", maxWidth: 150 }}>
-                            <div style={{ height: "100%", width: diffDays <= 0 ? "100%" : `${Math.max(10, 100 - (diffDays * 10))}%`, background: COLORS.danger }} />
-                          </div>
-                        </div>
-                      </div>
-                      <span className="status-badge" style={{ background: "var(--color-accent-red-light)", color: "var(--color-accent-red)", fontSize: 10, padding: "2px 6px" }}>
-                        {diffDays <= 0 ? "Expired" : `${diffDays} days`}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
+          <StoreAlertsPanel
+            lowStockItems={lowStockItems}
+            expiringSoonItems={expiringSoonItems}
+            copyPOToClipboard={copyPOToClipboard}
+            generateWhatsAppPO={generateWhatsAppPO}
+            handleReorderClick={handleReorderClick}
+            getInitialsAvatar={getInitialsAvatar}
+          />
         
           {/* Add form */}
           <Card>

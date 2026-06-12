@@ -11,7 +11,7 @@ import { COLORS, DEPARTMENTS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 const LIMIT = 20;
 
 export default function ProductionScreen() {

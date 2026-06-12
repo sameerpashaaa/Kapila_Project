@@ -9,7 +9,7 @@ import { COLORS } from "../../styles/colors";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
 
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 
 export default function MenuPlannerScreen() {
   const { setCurrentScreen, setIndentPreFill } = useAppContext();

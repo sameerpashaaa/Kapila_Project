@@ -49,7 +49,7 @@ const getStatusStyleAndText = (status) => {
   return { bg: "#F3F4F6", color: "#6B7280", text: status.charAt(0).toUpperCase() + status.slice(1) };
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 const LIMIT = 20;
 
 // ── ITEM NAME COMBOBOX ────────────────────────────────────────────────────────
@@ -582,13 +582,22 @@ export default function IndentScreen() {
   };
 
   const printSlip = () => {
+    const escapeHtml = (unsafe) => {
+      return (unsafe || "").toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+
     const itemsHtml = form.items
       .filter(i => i.name && i.qty)
       .map(i => `
         <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${i.item_code || "N/A"}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">${i.name}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${i.qty} ${i.unit || "kg"}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${escapeHtml(i.item_code || "N/A")}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">${escapeHtml(i.name)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${escapeHtml(i.qty)} ${escapeHtml(i.unit || "kg")}</td>
         </tr>
       `).join("");
 
@@ -596,7 +605,7 @@ export default function IndentScreen() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Indent Slip - ${form.dept}</title>
+          <title>Indent Slip - ${escapeHtml(form.dept)}</title>
           <style>
             body { font-family: sans-serif; padding: 20px; color: #333; }
             .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -615,8 +624,8 @@ export default function IndentScreen() {
             <h3 style="margin: 6px 0 0; font-size: 16px; letter-spacing: 0.05em; color: #475569; text-transform: uppercase;">Nightly Indent Slip</h3>
           </div>
           <div class="details">
-            <p><strong>Department:</strong> ${form.dept}</p>
-            <p><strong>Date Needed:</strong> ${form.date}</p>
+            <p><strong>Department:</strong> ${escapeHtml(form.dept)}</p>
+            <p><strong>Date Needed:</strong> ${escapeHtml(form.date)}</p>
             <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
           </div>
           <table>

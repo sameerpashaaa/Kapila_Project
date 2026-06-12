@@ -12,7 +12,7 @@ import { useAppContext } from "../../context/AppContext";
 import * as api from "../../api";
 
 const LIMIT = 20;
-const today = () => new Date().toISOString().slice(0, 10);
+import { today } from "../../utils/dates";
 const LOCATIONS = ["Store", ...DEPARTMENTS];
 const emptyItem = { item_code: "", name: "", qty: "", unit: UNITS[0], batch_no: "" };
 
