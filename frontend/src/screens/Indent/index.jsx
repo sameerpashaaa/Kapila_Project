@@ -183,10 +183,16 @@ export default function IndentScreen() {
           setIndentPreFill(null);
           setMsg("Pre-filled items from Menu Plan ✓");
           setTimeout(() => setMsg(""), 3000);
-        } else if (!savedDraft) {
-          const initialDept = res.data[0].name;
-          setForm((f) => ({ ...f, dept: initialDept }));
-          loadLeftovers(initialDept);
+        } else {
+          const validNames = res.data.map(d => d.name);
+          setForm((f) => {
+            if (!f.dept || !validNames.includes(f.dept)) {
+              loadLeftovers(res.data[0].name);
+              return { ...f, dept: res.data[0].name };
+            }
+            loadLeftovers(f.dept);
+            return f;
+          });
         }
       }
     }).catch(console.error);

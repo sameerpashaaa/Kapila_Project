@@ -41,7 +41,7 @@ kapila/
 6. **Dashboard** — Cross-module KPIs and alerts
 
 ## Departments (fixed list)
-`South Indian | North Indian | Continental | Juices | Bakery | Chinese`
+`TIFFINS | STAFF | SI-MEALS | NORTH INDIAN | CHAT & SOFTY | CHINESE & DOSA | MOCKTAILS & CONTINENTAL | RESTAURANT | ROOM SERVICE`
 
 ## Coding Rules
 - Never add features beyond what the current task requires

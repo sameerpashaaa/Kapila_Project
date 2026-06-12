@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 
-const DEPARTMENTS = ["South Indian", "North Indian", "Continental", "Juices", "Bakery", "Chinese"];
+const DEPARTMENTS = [
+  "TIFFINS", "STAFF", "SI-MEALS", "NORTH INDIAN", "CHAT & SOFTY", 
+  "CHINESE & DOSA", "MOCKTAILS & CONTINENTAL", "RESTAURANT", "ROOM SERVICE"
+];
 
 const STORAGE_KEYS = {
   stock: "kapila_stock",
@@ -293,7 +296,9 @@ function IssuanceScreen({ indents, setIndents, stock, setStock, issuances, setIs
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
-            "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY || "dummy-key"
+            "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY || "dummy-key",
+            "anthropic-version": "2023-06-01",
+            "anthropic-cors-bypass": "true"
           },
           body: JSON.stringify({
             model: "claude-sonnet-4-20250514",

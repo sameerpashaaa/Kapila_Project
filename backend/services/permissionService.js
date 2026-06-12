@@ -33,7 +33,7 @@ async function getUserAuthContext(userId) {
     permissions,
     departments,
     isAdmin: roles.some((role) => role.key === "admin"),
-    isManager: roles.some((role) => role.key === "manager"),
+    isManager: roles.some((role) => role.key === "manager" || role.key === "store_manager"),
   };
 }
 

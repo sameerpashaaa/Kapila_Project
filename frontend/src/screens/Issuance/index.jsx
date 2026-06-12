@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Section from "../../components/Section";
 import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
+import { getAccessToken } from "../../api/authToken";
 import { COLORS } from "../../styles/colors";
 import IssuanceTopSection from "./components/IssuanceTopSection";
 import IssuanceHistory from "./components/IssuanceHistory";
@@ -99,10 +100,10 @@ export default function StoreIssuancePage() {
     reader.onload = async () => {
       const base64 = reader.result.split(",")[1];
       try {
-        // Fix for 401 bug: pass x-api-key directly via fetch
+        // Fix for 401 bug: use getAccessToken() to send Bearer token to backend
         const BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
         const url = (BASE.startsWith("http") ? BASE : window.location.origin + BASE) + "/scan/indent";
-        const token = localStorage.getItem("kapila_token"); // or whatever logic for auth token
+        const token = getAccessToken();
         const res = await fetch(url, {
           method: "POST",
           headers: {

@@ -38,7 +38,8 @@ export const COLORS = {
 };
 
 export const DEPARTMENTS = [
-  "South Indian", "North Indian", "Continental", "Juices", "Bakery", "Chinese",
+  "TIFFINS", "STAFF", "SI-MEALS", "NORTH INDIAN", "CHAT & SOFTY", 
+  "CHINESE & DOSA", "MOCKTAILS & CONTINENTAL", "RESTAURANT", "ROOM SERVICE"
 ];
 
 export const UNITS = ["kg", "g", "L", "ml", "pcs", "dozen", "box", "plates", "portions"];
