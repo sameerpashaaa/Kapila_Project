@@ -33,7 +33,7 @@ async function getUserAuthContext(userId) {
     permissions,
     departments,
     isAdmin: roles.some((role) => role.key === "admin"),
-    isManager: roles.some((role) => role.key === "manager"),
+    isManager: roles.some((role) => role.key === "manager" || role.key === "store_manager"),
   };
 }
 
@@ -46,11 +46,18 @@ function hasPermission(user, permission) {
 
 async function getDepartmentNames(user) {
   if (!user || user.isAdmin) return null;
-  if (user.departments?.length) return user.departments.map((dept) => dept.name);
-  return db("departments")
+  if (user.departments && user.departments.length > 0) {
+    return user.departments.map((dept) => dept.name);
+  }
+  const assigned = await db("departments")
     .join("user_departments", "user_departments.department_id", "departments.id")
     .where("user_departments.user_id", user.id)
     .pluck("departments.name");
+
+  if (assigned.length > 0) {
+    return assigned;
+  }
+  return db("departments").pluck("name");
 }
 
 async function assertDepartmentAccess(user, deptName) {

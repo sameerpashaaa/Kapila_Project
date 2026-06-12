@@ -104,6 +104,11 @@ const ROLE_PERMISSION_KEYS = {
     "purchase_orders.delete", "grn.delete", "transfers.delete", "menu.delete", "recipes.delete",
     "production.delete", "leftovers.delete", "issuances.delete", "indents.delete",
   ].includes(key)),
+  store_manager: [
+    "stock.view", "stock.create", "stock.edit", "stock.delete", "stock.export", "stock.reconcile", "stock.scan",
+    "issuances.view", "issuances.create", "issuances.scan", "issuances.export",
+    "scan.indent", "scan.purchase", "scan.text",
+  ],
   chef: [
     "dashboard.view", "stock.view", "departments.view", "transfers.view", "transfers.create",
     "menu.view", "menu.create", "menu.edit", "recipes.view", "recipes.create", "recipes.edit",

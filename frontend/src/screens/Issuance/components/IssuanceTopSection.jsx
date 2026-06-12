@@ -13,6 +13,7 @@ export default function IssuanceTopSection({
   issueQtys,
   availableStock,
   onQtyChange,
+  onShowHistory,
 }) {
   return (
     <div
@@ -38,6 +39,7 @@ export default function IssuanceTopSection({
           scanning={scanning}
           scanText={scanText}
           msg={msg}
+          onShowHistory={onShowHistory}
         />
       </div>
 

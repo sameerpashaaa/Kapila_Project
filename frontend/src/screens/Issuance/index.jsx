@@ -6,6 +6,7 @@ import { getAccessToken } from "../../api/authToken";
 import { COLORS } from "../../styles/colors";
 import IssuanceTopSection from "./components/IssuanceTopSection";
 import IssuanceHistory from "./components/IssuanceHistory";
+import IndentHistoryModal from "../../components/issuance/IndentHistoryModal";
 
 import { today } from "../../utils/dates";
 const LIMIT = 20;
@@ -19,6 +20,7 @@ export default function StoreIssuancePage() {
   const [scanText, setScanText] = useState("");
   const [scanning, setScanning] = useState(false);
   const [msg, setMsg] = useState("");
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const { items, total, page, loading, error, fetch: fetchHistory } = usePaginatedApi(api.issuances.list);
 
@@ -153,6 +155,7 @@ export default function StoreIssuancePage() {
         issueQtys={issueQtys}
         availableStock={availableStock}
         onQtyChange={handleQtyChange}
+        onShowHistory={() => setIsHistoryOpen(true)}
       />
       
       <IssuanceHistory 
@@ -163,6 +166,11 @@ export default function StoreIssuancePage() {
         error={error}
         onPageChange={(p) => loadIssuances({ page: p })}
         LIMIT={LIMIT}
+      />
+
+      <IndentHistoryModal 
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
       />
     </Section>
   );

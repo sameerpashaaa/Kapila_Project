@@ -4,7 +4,9 @@ import ErrorMsg from "../../../components/ErrorMsg";
 import { COLORS } from "../../../styles/colors";
 import SourceBadge from "../../../components/SourceBadge";
 import KplCodeBadge from "../../../components/KplCodeBadge";
-import { Search, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, Eye, X } from "lucide-react";
+import Btn from "../../../components/Btn";
+
 
 const formatIssuanceDate = (isoString) => {
   try {
@@ -46,6 +48,8 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
   const [isExpanded, setIsExpanded] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [selectedIss, setSelectedIss] = useState(null);
+
 
   const filteredItems = items.filter((iss) => {
     const matchesSearch =
@@ -224,6 +228,7 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
                           </td>
                           <td style={{ padding: "12px 16px", textAlign: "center" }}>
                             <button
+                              onClick={() => setSelectedIss(iss)}
                               style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}
                               title="View details"
                             >
@@ -240,6 +245,103 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
             </>
           )}
         </>
+      )}
+
+      {/* Details Modal */}
+      {selectedIss && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(15, 23, 42, 0.65)", display: "flex",
+          alignItems: "center", justifyContent: "center", zIndex: 1000,
+          backdropFilter: "blur(4px)"
+        }}>
+          <div style={{
+            background: COLORS.surface, border: `1px solid ${COLORS.border}`,
+            borderRadius: 12, padding: 24, width: 600, maxWidth: "95%",
+            boxShadow: `0 10px 25px rgba(0,0,0,0.15)`,
+            display: "flex", flexDirection: "column", maxHeight: "85vh"
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Eye size={18} color={COLORS.brand} /> Indent Details (Issued)
+                </h3>
+                <p style={{ fontSize: 12, color: COLORS.muted, marginTop: 4 }}>
+                  {selectedIss.dept} · {formatIssuanceDate(selectedIss.date)}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedIss(null)} 
+                style={{ background: "transparent", border: "none", color: COLORS.muted, cursor: "pointer", padding: 4 }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Metadata Grid */}
+            <div style={{ 
+              display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, 
+              padding: 16, background: COLORS.bg, borderRadius: 8, marginBottom: 20 
+            }}>
+              <div>
+                <p style={{ fontSize: 10, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Indent Ref</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginTop: 2 }}>
+                  {selectedIss.indent_id ? `#${selectedIss.indent_id}` : "Manual / Direct Issuance"}
+                </p>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Source</p>
+                <div style={{ marginTop: 2 }}>
+                  <SourceBadge source={selectedIss.scanned ? "scanned" : "manual"} />
+                </div>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Items Count</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginTop: 2 }}>
+                  {(selectedIss.items || []).length} items
+                </p>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div style={{ flex: 1, overflowY: "auto", marginBottom: 20 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Code</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Item Name</th>
+                    <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Req. Qty</th>
+                    <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Issued Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedIss.items || []).map((it, idx) => (
+                    <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}22` }}>
+                      <td style={{ padding: "10px 12px", verticalAlign: "middle" }}>
+                        <KplCodeBadge code={it.item_code} />
+                      </td>
+                      <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500, verticalAlign: "middle" }}>
+                        {it.name}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.muted, verticalAlign: "middle" }}>
+                        {it.qty !== null && it.qty !== undefined ? `${it.qty} ${it.unit || "kg"}` : "—"}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.success, fontWeight: 600, verticalAlign: "middle" }}>
+                        {it.issued} {it.unit || "kg"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 16 }}>
+              <Btn onClick={() => setSelectedIss(null)} variant="ghost">Close</Btn>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

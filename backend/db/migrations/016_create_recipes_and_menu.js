@@ -62,6 +62,29 @@ exports.up = async (knex) => {
   await knex("recipe_items").insert([
     { recipe_id: recipe3.id, item_name: "Premium Basmati Rice", base_qty: 6.0, base_plates: 100, unit: "kg" }
   ]);
+
+  const [recipe4] = await knex("recipes").insert({
+    name: "South Indian Biryani",
+    category: "NORTH INDIAN",
+    description: "Aromatic South Indian style biryani cooked with basmati rice, vegetables, spices, ghee, curd, and fresh herbs."
+  }).returning("id");
+
+  await knex("recipe_items").insert([
+    { recipe_id: recipe4.id, item_name: "BIRYANI RICE", base_qty: 12.0, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "SUNFLOWER OIL", base_qty: 2.5, base_plates: 100, unit: "L" },
+    { recipe_id: recipe4.id, item_name: "GHEE", base_qty: 1.5, base_plates: 100, unit: "L" },
+    { recipe_id: recipe4.id, item_name: "ONION", base_qty: 5.0, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "TOMATO", base_qty: 3.0, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "CURD", base_qty: 4.0, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "GINGER", base_qty: 1.0, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "GARLIC", base_qty: 1.0, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "PUDINA", base_qty: 0.5, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "DHANIYA", base_qty: 0.5, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "GREEN CHILLI", base_qty: 0.8, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "CHILLI POWDER", base_qty: 0.3, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "GARAM MASALA / गरम मसाला", base_qty: 0.2, base_plates: 100, unit: "kg" },
+    { recipe_id: recipe4.id, item_name: "SALT SMALL", base_qty: 0.5, base_plates: 100, unit: "kg" }
+  ]);
 };
 
 exports.down = async (knex) => {

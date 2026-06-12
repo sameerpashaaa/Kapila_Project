@@ -11,7 +11,7 @@ const helmet       = require("helmet");
 const compression  = require("compression");
 const errorHandler = require("./middleware/errorHandler");
 const { authenticate } = require("./middleware/auth");
-const { checkOllamaHealth } = require("./services/localAI");
+const { checkAIHealth } = require("./services/localAI");
 
 const app = express();
 app.use(helmet());
@@ -21,7 +21,8 @@ app.use(cors({
   credentials: true,
 }));
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ limit: "15mb", extended: true }));
 
 app.use("/api/auth", require("./routes/auth"));
 app.get("/api/health", (req, res) => res.json({ ok: true }));
@@ -50,9 +51,9 @@ app.use("/api/approved-delivery", require("./routes/approvedDelivery"));
 app.use("/api/chef-stats",  require("./routes/chefStats"));
 app.use("/api",                 require("./routes/recipes"));
 
-// Local AI health check — tells the frontend if Ollama is up and model loaded
+// AI health check — tells the frontend if Gemini API is configured
 app.get("/api/ai-health", authenticate, async (req, res) => {
-  const status = await checkOllamaHealth();
+  const status = await checkAIHealth();
   res.status(status.ok ? 200 : 503).json(status);
 });
 
@@ -61,12 +62,12 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   console.log(`Kapila backend running on http://localhost:${PORT}`);
-  // Check Ollama on startup
-  const aiHealth = await checkOllamaHealth();
+  // Check AI health on startup
+  const aiHealth = await checkAIHealth();
   if (aiHealth.ok) {
-    console.log(`✅ Ollama ready (model: ${process.env.OLLAMA_MODEL || "gemma3:1b"})`);
+    console.log(`✅ Gemini API ready (model: gemini-2.5-flash)`);
   } else {
-    console.warn(`⚠️  Ollama not ready: ${aiHealth.reason}`);
-    console.warn(`   Scan and text-parse features will be unavailable until Ollama is running.`);
+    console.warn(`⚠️  Gemini API not ready: ${aiHealth.reason}`);
+    console.warn(`   Scan and text-parse features will be unavailable until a key is provided.`);
   }
 });

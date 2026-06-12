@@ -1,71 +1,104 @@
 /**
- * localAI.js — Shared service for fully-local AI processing.
- *
- * OCR:        Tesseract.js  (runs in process, no network)
- * Structuring: Ollama       (localhost:11434, model: gemma3:1b)
+ * localAI.js — Service for AI processing using the Gemini API.
  */
 
-const { createWorker } = require("tesseract.js");
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "gemma3:1b";
-
-// ── Tesseract OCR ──────────────────────────────────────────────────────────
-/**
- * Run OCR on a base64-encoded image. Returns raw extracted text string.
- * Supports multilingual: eng+hin+tel (English, Hindi, Telugu).
- */
-async function ocrImage(base64Data, mimeType) {
-  const worker = await createWorker("eng+hin+tel", 1, {
-    logger: () => {}, // suppress progress logs
-  });
-
-  try {
-    // Convert base64 to Buffer for Tesseract
-    const imageBuffer = Buffer.from(base64Data, "base64");
-    const { data } = await worker.recognize(imageBuffer);
-    return data.text || "";
-  } finally {
-    await worker.terminate();
+async function callGemini(contents, responseMimeType = "text/plain") {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured in the .env file.");
   }
-}
 
-// ── Ollama LLM ─────────────────────────────────────────────────────────────
-/**
- * Send raw OCR text to a local Ollama model and get back a structured JSON.
- * @param {string} rawText  - The OCR-extracted text or voice transcript
- * @param {string} task     - "indent" | "purchase" | "text" | "delivery"
- * @returns {object} Parsed JSON object
- */
-async function structureWithOllama(rawText, task) {
-  const prompt = buildPrompt(task, rawText);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  
+  const body = {
+    contents,
+    generationConfig: {}
+  };
+  
+  if (responseMimeType === "application/json") {
+    body.generationConfig.responseMimeType = "application/json";
+  }
 
-  const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+  const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      prompt,
-      stream: false,
-      format: "json",
-      options: {
-        temperature: 0,     // deterministic output
-        num_predict: 1024,  // cap output length
-      },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Ollama request failed (${response.status}): ${errText.slice(0, 200)}`);
+    throw new Error(`Gemini API request failed (${response.status}): ${errText.slice(0, 200)}`);
   }
 
   const result = await response.json();
-  const raw = (result.response || "").trim();
+  const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error("Empty response from Gemini API.");
+  }
+  return text.trim();
+}
 
-  // Ollama with format:"json" usually returns clean JSON, but strip fences just in case
-  const cleaned = raw.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-  return JSON.parse(cleaned);
+/**
+ * Perform OCR using Gemini.
+ */
+async function ocrImage(base64Data, mimeType) {
+  const contents = [
+    {
+      parts: [
+        {
+          text: "Perform OCR on this image. Extract all text, numbers, and words clearly. Return only the raw text extracted, exactly as it appears in the image, without any introduction, headings, or markdown."
+        },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Data
+          }
+        }
+      ]
+    }
+  ];
+  return await callGemini(contents);
+}
+
+/**
+ * Structure extracted text using Gemini.
+ */
+async function structureWithOllama(rawText, task) {
+  const prompt = buildPrompt(task, rawText);
+  const contents = [
+    {
+      parts: [
+        {
+          text: prompt
+        }
+      ]
+    }
+  ];
+  const responseText = await callGemini(contents, "application/json");
+  return JSON.parse(responseText);
+}
+
+/**
+ * Transcribe spoken audio using Gemini.
+ */
+async function transcribeAudio(base64Data, mimeType) {
+  const contents = [
+    {
+      parts: [
+        {
+          text: "You are a speech-to-text transcriber for a kitchen inventory system. Transcribe the spoken audio clip. If it is in an Indian language like Hindi or Telugu, or code-mixed with English (e.g. 'Aloo 5 kg', 'Tamatar 10 portions'), transcribe it phonetically or translate/transcribe it clearly to English text so it can be parsed. Return ONLY the transcribed text. Do not include any other commentary."
+        },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Data
+          }
+        }
+      ]
+    }
+  ];
+  return await callGemini(contents);
 }
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
@@ -119,31 +152,18 @@ ${rawText}`,
   return prompts[task] || prompts.text;
 }
 
-// ── Health check ───────────────────────────────────────────────────────────
 /**
- * Returns true if Ollama is running and the required model is available.
+ * Returns true if Gemini API key is configured.
  */
-async function checkOllamaHealth() {
-  try {
-    const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return { ok: false, reason: `Ollama responded with ${res.status}` };
-    const data = await res.json();
-    const models = (data.models || []).map((m) => m.name);
-    const hasModel = models.some((m) => m.startsWith(OLLAMA_MODEL.split(":")[0]));
-    if (!hasModel) {
-      return {
-        ok: false,
-        reason: `Model "${OLLAMA_MODEL}" not found. Run: ollama pull ${OLLAMA_MODEL}`,
-        available: models,
-      };
-    }
+async function checkAIHealth() {
+  if (GEMINI_API_KEY) {
     return { ok: true };
-  } catch (e) {
+  } else {
     return {
       ok: false,
-      reason: `Ollama not reachable at ${OLLAMA_URL}. Install from https://ollama.com and run: ollama pull ${OLLAMA_MODEL}`,
+      reason: "GEMINI_API_KEY is not defined in the .env file. Please add it to start using OCR and voice parsing."
     };
   }
 }
 
-module.exports = { ocrImage, structureWithOllama, checkOllamaHealth };
+module.exports = { ocrImage, structureWithOllama, checkAIHealth, transcribeAudio };

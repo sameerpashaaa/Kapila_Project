@@ -48,6 +48,7 @@ export const scan = {
   indent:   (image, mimeType) => api.post("/scan/indent", { image, mime_type: mimeType }),
   purchase: (image, mimeType) => api.post("/scan/purchase", { image, mime_type: mimeType }),
   text:     (text) => api.post("/scan/text", { text }),
+  voice:    (audio, mimeType) => api.post("/scan/voice", { audio, mime_type: mimeType }),
 };
 
 export const suppliers = {
@@ -101,6 +102,9 @@ export const departments = {
 
 export const recipes = {
   list: () => api.get("/recipes"),
+  create: (body) => api.post("/recipes", body),
+  update: (id, body) => api.patch(`/recipes/${id}`, body),
+  remove: (id) => api.delete(`/recipes/${id}`),
 };
 
 export const menu = {

@@ -1,37 +1,9 @@
 /**
- * useLocalSpeech.js — React hook for local speech-to-text via Whisper Tiny.
- *
- * Usage:
- *   const { listening, transcript, interimText, startRecording, stopRecording } = useLocalSpeech(lang);
- *
- * @param {string} lang - BCP-47 language code, e.g. "en", "hi", "te"
+ * useLocalSpeech.js — React hook for speech-to-text via API (Gemini).
  */
 
 import { useState, useRef, useCallback } from "react";
-
-// Map BCP-47 tags to Whisper language names
-const LANG_MAP = {
-  "en-IN": "english",
-  "en":    "english",
-  "hi-IN": "hindi",
-  "hi":    "hindi",
-  "te-IN": "telugu",
-  "te":    "telugu",
-  "ta-IN": "tamil",
-  "ta":    "tamil",
-  "kn-IN": "kannada",
-  "kn":    "kannada",
-  "ml-IN": "malayalam",
-  "ml":    "malayalam",
-  "mr-IN": "marathi",
-  "mr":    "marathi",
-  "gu-IN": "gujarati",
-  "gu":    "gujarati",
-  "bn-IN": "bengali",
-  "bn":    "bengali",
-  "pa-IN": "punjabi",
-  "pa":    "punjabi",
-};
+import * as api from "../api";
 
 export function useLocalSpeech(lang = "en-IN") {
   const [listening, setListening]     = useState(false);
@@ -39,19 +11,8 @@ export function useLocalSpeech(lang = "en-IN") {
   const [transcript, setTranscript]   = useState("");
   const [interimText, setInterimText] = useState("");
 
-  const workerRef       = useRef(null);
   const mediaRecorder   = useRef(null);
   const audioChunks     = useRef([]);
-
-  const getWorker = useCallback(() => {
-    if (!workerRef.current) {
-      workerRef.current = new Worker(
-        new URL("../workers/whisper.worker.js", import.meta.url),
-        { type: "module" }
-      );
-    }
-    return workerRef.current;
-  }, []);
 
   const startRecording = useCallback(async (onResult, onStatus) => {
     if (listening) return;
@@ -70,40 +31,30 @@ export function useLocalSpeech(lang = "en-IN") {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(audioChunks.current, { type: "audio/webm" });
 
-        const worker = getWorker();
-        const whisperLang = LANG_MAP[lang] || "english";
+        setStatusMsg("Transcribing audio...");
+        if (onStatus) onStatus("Transcribing audio...");
 
-        worker.onmessage = (e) => {
-          const { type, text, message } = e.data;
-          if (type === "progress") {
-            setStatusMsg(message);
-            setInterimText(message);
-            if (onStatus) onStatus(message);
-          } else if (type === "result") {
-            setTranscript((prev) => (prev ? prev + "\n" + text : text));
-            setInterimText("");
-            setStatusMsg("");
-            if (onResult) onResult(text);
-          } else if (type === "error") {
-            setStatusMsg("Error: " + message);
-            setInterimText("");
-            if (onStatus) onStatus("Error: " + message);
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const base64 = reader.result.split(",")[1];
+            const res = await api.scan.voice(base64, blob.type);
+            if (res.success && res.text) {
+              setTranscript((prev) => (prev ? prev + "\n" + res.text : res.text));
+              setStatusMsg("");
+              if (onResult) onResult(res.text);
+            } else {
+              const errMsg = res.error || "Transcription failed";
+              setStatusMsg(errMsg);
+              if (onStatus) onStatus(errMsg);
+            }
+          } catch (err) {
+            const errMsg = "Transcription failed: " + err.message;
+            setStatusMsg(errMsg);
+            if (onStatus) onStatus(errMsg);
           }
         };
-
-        try {
-          // Decode audio on main thread because AudioContext is not available in Web Workers
-          const arrayBuffer = await blob.arrayBuffer();
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-          const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-          audioCtx.close();
-          const audioData = decoded.getChannelData(0); // Mono, 16 kHz Float32Array
-
-          worker.postMessage({ type: "transcribe", audioData, language: whisperLang }, [audioData.buffer]);
-        } catch (err) {
-          setStatusMsg("Error decoding audio: " + err.message);
-          if (onStatus) onStatus("Error decoding audio: " + err.message);
-        }
+        reader.readAsDataURL(blob);
       };
 
       mediaRecorder.current.start();
@@ -118,14 +69,14 @@ export function useLocalSpeech(lang = "en-IN") {
       setStatusMsg(msg);
       if (onStatus) onStatus(msg);
     }
-  }, [listening, lang, getWorker]);
+  }, [listening]);
 
   const stopRecording = useCallback((onStatus) => {
     if (mediaRecorder.current && mediaRecorder.current.state !== "inactive") {
       mediaRecorder.current.stop();
       setListening(false);
-      setStatusMsg("Transcribing…");
-      if (onStatus) onStatus("Transcribing…");
+      setStatusMsg("Processing audio...");
+      if (onStatus) onStatus("Processing audio...");
     }
   }, []);
 

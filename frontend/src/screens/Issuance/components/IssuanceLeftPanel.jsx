@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import Card from "../../../components/Card";
 import { COLORS } from "../../../styles/colors";
-import { ChevronDown, FileImage, Camera, QrCode } from "lucide-react";
+import { ChevronDown, FileImage, Camera, QrCode, Calendar } from "lucide-react";
 
 const formatIndentLabel = (indent) => {
   const dept = indent.dept || "";
@@ -37,6 +37,7 @@ export default function IssuanceLeftPanel({
   scanning,
   scanText,
   msg,
+  onShowHistory,
 }) {
   const fileRef = useRef();
   const [scanOpen, setScanOpen] = useState(false);
@@ -66,9 +67,33 @@ export default function IssuanceLeftPanel({
   return (
     <Card style={{ display: "flex", flexDirection: "column", height: "100%", gap: 0, padding: "20px" }}>
       {/* Section label */}
-      <p style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, marginBottom: 18, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        Issue From Pending Indent
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Issue From Pending Indent
+        </p>
+        <button
+          type="button"
+          onClick={onShowHistory}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#e8a838",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            padding: 0,
+            outline: "none",
+          }}
+        >
+          <Calendar size={13} style={{ color: "#e8a838" }} />
+          Indent History
+        </button>
+      </div>
 
       {/* Select Indent */}
       <div style={{ marginBottom: 16 }}>

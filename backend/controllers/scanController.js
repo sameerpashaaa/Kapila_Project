@@ -1,5 +1,5 @@
 const db = require("../db");
-const { ocrImage, structureWithOllama } = require("../services/localAI");
+const { ocrImage, structureWithOllama, transcribeAudio } = require("../services/localAI");
 
 // ── POST /api/scan/indent ──────────────────────────────────────────────────
 // Accepts: { image: base64string, mime_type: string }
@@ -47,23 +47,18 @@ async function scanIndent(req, res, next) {
       }
     }
 
-    // 4. Save as pending indent
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const [indent] = await db("indents")
-      .insert({ dept: finalDept, date: todayStr, status: "pending" })
-      .returning("*");
-
-    const rows = enrichedItems.map((it) => ({
-      indent_id: indent.id,
-      name: it.name,
-      qty: it.qty,
-      unit: it.unit,
-      item_code: it.item_code,
-    }));
-
-    const savedItems = await db("indent_items").insert(rows).returning("*");
-
-    res.json({ success: true, data: { ...indent, items: savedItems } });
+    res.json({
+      success: true,
+      data: {
+        dept: finalDept,
+        items: enrichedItems.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          unit: it.unit || "kg",
+          item_code: it.item_code || "KPL-NEW",
+        })),
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -147,4 +142,20 @@ async function scanText(req, res, next) {
   }
 }
 
-module.exports = { scanIndent, scanPurchase, scanText };
+// ── POST /api/scan/voice ───────────────────────────────────────────────────
+// Accepts: { audio: base64string, mime_type: string }
+async function scanVoice(req, res, next) {
+  try {
+    const { audio, mime_type } = req.body;
+    if (!audio || !mime_type) {
+      return res.status(400).json({ success: false, error: "audio and mime_type are required." });
+    }
+
+    const text = await transcribeAudio(audio, mime_type);
+    res.json({ success: true, text });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { scanIndent, scanPurchase, scanText, scanVoice };

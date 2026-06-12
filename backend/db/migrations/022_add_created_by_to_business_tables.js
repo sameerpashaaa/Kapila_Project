@@ -8,8 +8,8 @@ exports.up = async function (knex) {
       const hasUpdatedBy = await knex.schema.hasColumn(table, "updated_by");
 
       await knex.schema.alterTable(table, (t) => {
-        if (!hasCreatedBy) t.uuid("created_by").references("id").inTable("users").onDelete("SET NULL");
-        if (!hasUpdatedBy) t.uuid("updated_by").references("id").inTable("users").onDelete("SET NULL");
+        if (!hasCreatedBy) t.integer("created_by").references("id").inTable("users").onDelete("SET NULL");
+        if (!hasUpdatedBy) t.integer("updated_by").references("id").inTable("users").onDelete("SET NULL");
       });
     }
   }

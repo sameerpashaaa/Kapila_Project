@@ -12,7 +12,7 @@ import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
 import { useLocalSpeech } from "../../hooks/useLocalSpeech";
-import { Plus, Zap, Mic, History, Trash2, Printer, Search, Inbox, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Zap, Mic, History, Trash2, Printer, Search, Inbox, ChevronDown, ChevronUp, Camera } from "lucide-react";
 
 const WhatsAppIcon = ({ size = 15 }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" style={{ display: "inline-block", verticalAlign: "middle" }}>
@@ -172,6 +172,8 @@ export default function IndentScreen() {
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
   const [msg, setMsg]   = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [loadingScan, setLoadingScan] = useState(false);
+  const fileInputRef = useRef(null);
   const { items, total, page, loading, error, fetch } = usePaginatedApi(api.indents.list);
 
   const [showModal, setShowModal] = useState(false);
@@ -324,6 +326,10 @@ export default function IndentScreen() {
     setActiveRowIdx(form.items.length); // Focus on the new row
   };
   const removeRow = (idx) => setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
+  const clearAll = () => {
+    setForm((f) => ({ ...f, items: [] }));
+    setActiveRowIdx(0);
+  };
 
   // Add a suggestion chip (plain string name from dept JSON)
   const addSuggestionChip = (itemName) => {
@@ -483,6 +489,72 @@ export default function IndentScreen() {
     }
   };
 
+  const handleScanClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLoadingScan(true);
+    setMsg("Uploading and scanning slip...");
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64String = reader.result.split(",")[1];
+        const res = await api.scan.indent(base64String, file.type);
+        if (res.success && res.data) {
+          const parsed = res.data;
+          
+          let updatedDept = form.dept;
+          if (parsed.dept) {
+            const matchedDept = deptsList.find(d => d.name.toLowerCase() === parsed.dept.toLowerCase());
+            if (matchedDept) {
+              updatedDept = matchedDept.name;
+            }
+          }
+
+          const parsedItems = (parsed.items || []).map(it => ({
+            id: Date.now() + Math.random(),
+            name: it.name.toUpperCase(),
+            qty: (it.qty || "").toString(),
+            unit: it.unit || "kg",
+            item_code: it.item_code || "KPL-NEW",
+            notes: ""
+          }));
+
+          if (parsedItems.length > 0) {
+            setForm(prev => {
+              const baseItems = (prev.items.length === 1 && !prev.items[0].name) ? [] : prev.items;
+              return {
+                ...prev,
+                dept: updatedDept,
+                items: [...baseItems, ...parsedItems]
+              };
+            });
+            fetchStockLevels(parsedItems.map(it => it.name));
+            setMsg(`Successfully scanned slip: added ${parsedItems.length} items ✓`);
+          } else {
+            setMsg("No items could be recognized from the document.");
+          }
+        } else {
+          setMsg("Scan failed: " + (res.error || "Unknown error"));
+        }
+      } catch (err) {
+        setMsg("Scan failed: " + err.message);
+      } finally {
+        setLoadingScan(false);
+        e.target.value = null;
+        setTimeout(() => setMsg(""), 4000);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const startListening = () => {
     if (listening) {
       stopRecording((status) => {
@@ -516,37 +588,121 @@ export default function IndentScreen() {
       .replace(/\bnine\b/g, "9")
       .replace(/\bten\b/g, "10");
 
-    const phrases = normalized.split(/,|\band\b/);
-    const added = [];
+    // Replace commas, "and", and punctuation with spaces for robust tokenization
+    const cleanText = normalized
+      .replace(/,|\band\b/g, " ")
+      .replace(/[.\/#!$%\^&\*;:{}=\-_`~()]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    phrases.forEach(phrase => {
-      const numMatch = phrase.match(/\d+(?:\.\d+)?/);
-      if (!numMatch) return;
+    // Match either number (with optional units) or text sequences
+    const tokenRegex = /[a-z]+(?:\s+[a-z]+)*|\d+(?:\.\d+)?(?:\s*(?:packets|packet|litres|litre|bundles|bundle|boxes|box|bottles|bottle|kgs|kg|pcs|l\b))?/gi;
+    const rawTokens = cleanText.match(tokenRegex) || [];
+
+    const parsedTokens = rawTokens.map(token => {
+      if (/^\d/.test(token)) {
+        const match = token.match(/^(\d+(?:\.\d+)?)\s*(.*)$/i);
+        return {
+          type: "number",
+          qty: match[1],
+          unit: match[2]?.trim().toLowerCase() || null
+        };
+      } else {
+        return {
+          type: "text",
+          text: token.trim()
+        };
+      }
+    });
+
+    // Merge consecutive text tokens
+    const mergedTokens = [];
+    for (let j = 0; j < parsedTokens.length; j++) {
+      const current = parsedTokens[j];
+      if (current.type === "text") {
+        if (mergedTokens.length > 0 && mergedTokens[mergedTokens.length - 1].type === "text") {
+          mergedTokens[mergedTokens.length - 1].text += " " + current.text;
+        } else {
+          mergedTokens.push(current);
+        }
+      } else {
+        mergedTokens.push(current);
+      }
+    }
+
+    const normalizeUnit = (unit) => {
+      if (!unit) return "kg";
+      const u = unit.toLowerCase();
+      if (u === "kg" || u === "kgs") return "kg";
+      if (u === "g") return "g";
+      if (u === "l" || u === "litre" || u === "litres") return "L";
+      if (u === "ml") return "ml";
+      if (u === "pcs" || u === "piece" || u === "pieces") return "pcs";
+      if (u === "dozen") return "dozen";
+      if (u === "box" || u === "boxes") return "box";
+      if (u === "plates") return "plates";
+      if (u === "portions") return "portions";
+      return "kg";
+    };
+
+    const parsedPairs = [];
+    let i = 0;
+    while (i < mergedTokens.length) {
+      const current = mergedTokens[i];
       
-      const qty = numMatch[0];
-      const cleanPhrase = phrase
-        .replace(qty, "")
-        .replace(/\bkg\b|\bpcs\b|\blitre\b|\bl\b|\bpacket\b|\bpackets\b/gi, "")
-        .trim();
+      if (current.type === "text") {
+        const next = mergedTokens[i + 1];
+        if (next && next.type === "number") {
+          parsedPairs.push({
+            name: current.text,
+            qty: next.qty,
+            unit: normalizeUnit(next.unit)
+          });
+          i += 2;
+        } else {
+          parsedPairs.push({
+            name: current.text,
+            qty: "1",
+            unit: "kg"
+          });
+          i += 1;
+        }
+      } else if (current.type === "number") {
+        const next = mergedTokens[i + 1];
+        if (next && next.type === "text") {
+          parsedPairs.push({
+            name: next.text,
+            qty: current.qty,
+            unit: normalizeUnit(current.unit)
+          });
+          i += 2;
+        } else {
+          i += 1;
+        }
+      }
+    }
 
-      if (cleanPhrase.length < 2) return;
+    const added = [];
+    parsedPairs.forEach(item => {
+      const cleanName = item.name.toLowerCase();
+      if (cleanName.length < 2) return;
 
       const matched = filteredStockItems.find(s => 
-        s.name.toLowerCase().includes(cleanPhrase) || cleanPhrase.includes(s.name.toLowerCase())
+        s.name.toLowerCase().includes(cleanName) || cleanName.includes(s.name.toLowerCase())
       );
 
       if (matched) {
         added.push({
           name: matched.name,
-          qty: qty,
+          qty: item.qty,
           unit: matched.unit,
           item_code: matched.item_code
         });
       } else {
         added.push({
-          name: cleanPhrase.toUpperCase(),
-          qty: qty,
-          unit: "kg",
+          name: item.name.toUpperCase(),
+          qty: item.qty,
+          unit: item.unit,
           item_code: "KPL-NEW"
         });
       }
@@ -731,6 +887,30 @@ export default function IndentScreen() {
                 <button className="action-btn subtle" onClick={smartAutofill}>
                   <History size={15} /> Autofill History
                 </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  style={{ display: "none" }}
+                />
+                <button 
+                  className="action-btn subtle" 
+                  onClick={handleScanClick} 
+                  style={{ gridColumn: "span 2" }}
+                  disabled={loadingScan}
+                >
+                  {loadingScan ? (
+                    <>
+                      <div style={{ width: 14, height: 14, border: "2px solid #475569", borderTopColor: "transparent", borderRadius: "50%", marginRight: 6, display: "inline-block", verticalAlign: "middle", animation: "spin 1s linear infinite" }} />
+                      Scanning Slip...
+                    </>
+                  ) : (
+                    <>
+                      <Camera size={15} /> Scan Slip/Image
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Submit & Share */}
@@ -757,6 +937,12 @@ export default function IndentScreen() {
           {/* RIGHT PANEL */}
           <div className="indent-right-panel">
             <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "0", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F8FAFC" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.05em", color: "#475569", textTransform: "uppercase" }}>Indent Items</span>
+                <button onClick={clearAll} style={{ background: "transparent", border: "none", color: "#EF4444", fontSize: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <Trash2 size={13} /> Clear All
+                </button>
+              </div>
               <div className="table-container" style={{ flex: 1, overflowY: "auto" }}>
                 <table className="excel-table">
                   <colgroup>
