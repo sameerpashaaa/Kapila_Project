@@ -8,10 +8,17 @@ import IssuanceTopSection from "./components/IssuanceTopSection";
 import IssuanceHistory from "./components/IssuanceHistory";
 import IndentHistoryModal from "../../components/issuance/IndentHistoryModal";
 
+import { useAuth } from "../../context/AuthContext";
+import { useAppContext } from "../../context/AppContext";
+
 import { today } from "../../utils/dates";
 const LIMIT = 20;
 
 export default function StoreIssuancePage() {
+  const { roles } = useAuth();
+  const { setCurrentScreen } = useAppContext();
+  const isStoreManager = roles.some((r) => r.key === "store_manager");
+
   const [pendingIndents, setPendingIndents] = useState([]);
   const [selectedIndent, setSelectedIndent] = useState(null);
   const [issueQtys, setIssueQtys] = useState({});
@@ -142,36 +149,111 @@ export default function StoreIssuancePage() {
   };
 
   return (
-    <Section title="Issue Material" sub="Storekeeper issues goods against indent requests">
-      <IssuanceTopSection 
-        onScan={handleScan}
-        scanning={scanning}
-        scanText={scanText}
-        msg={msg}
-        pendingIndents={pendingIndents}
-        selectedIndent={selectedIndent}
-        onSelectIndent={handleSelectIndent}
-        onIssue={handleIssue}
-        issueQtys={issueQtys}
-        availableStock={availableStock}
-        onQtyChange={handleQtyChange}
-        onShowHistory={() => setIsHistoryOpen(true)}
-      />
-      
-      <IssuanceHistory 
-        items={items}
-        total={total}
-        page={page}
-        loading={loading}
-        error={error}
-        onPageChange={(p) => loadIssuances({ page: p })}
-        LIMIT={LIMIT}
-      />
+    <>
+      {isStoreManager ? (
+        <div style={{ minHeight: "100vh", backgroundColor: "#F8FAFC", display: "flex", flexDirection: "column" }}>
+          {/* Unified Page Header */}
+          <div style={{
+            backgroundColor: "white",
+            borderBottom: "1px solid #E2E8F0",
+            padding: "16px 24px",
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            flexShrink: 0
+          }}>
+            <button
+              onClick={() => setCurrentScreen("store_manager_home")}
+              style={{
+                background: "none",
+                border: "1px solid #E2E8F0",
+                borderRadius: "8px",
+                padding: "6px 12px",
+                cursor: "pointer",
+                color: "#475569",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontWeight: 500,
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#F1F5F9"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+            >
+              ← Back
+            </button>
+            <h1 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#0F172A" }}>
+              Store Issuance
+            </h1>
+          </div>
 
-      <IndentHistoryModal 
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-      />
-    </Section>
+          {/* Unified body layout */}
+          <div style={{ padding: "24px", flex: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
+            <IssuanceTopSection 
+              onScan={handleScan}
+              scanning={scanning}
+              scanText={scanText}
+              msg={msg}
+              pendingIndents={pendingIndents}
+              selectedIndent={selectedIndent}
+              onSelectIndent={handleSelectIndent}
+              onIssue={handleIssue}
+              issueQtys={issueQtys}
+              availableStock={availableStock}
+              onQtyChange={handleQtyChange}
+              onShowHistory={() => setIsHistoryOpen(true)}
+            />
+            
+            <IssuanceHistory 
+              items={items}
+              total={total}
+              page={page}
+              loading={loading}
+              error={error}
+              onPageChange={(p) => loadIssuances({ page: p })}
+              LIMIT={LIMIT}
+            />
+
+            <IndentHistoryModal 
+              isOpen={isHistoryOpen}
+              onClose={() => setIsHistoryOpen(false)}
+            />
+          </div>
+        </div>
+      ) : (
+        <Section title="Issue Material" sub="Storekeeper issues goods against indent requests">
+          <IssuanceTopSection 
+            onScan={handleScan}
+            scanning={scanning}
+            scanText={scanText}
+            msg={msg}
+            pendingIndents={pendingIndents}
+            selectedIndent={selectedIndent}
+            onSelectIndent={handleSelectIndent}
+            onIssue={handleIssue}
+            issueQtys={issueQtys}
+            availableStock={availableStock}
+            onQtyChange={handleQtyChange}
+            onShowHistory={() => setIsHistoryOpen(true)}
+          />
+          
+          <IssuanceHistory 
+            items={items}
+            total={total}
+            page={page}
+            loading={loading}
+            error={error}
+            onPageChange={(p) => loadIssuances({ page: p })}
+            LIMIT={LIMIT}
+          />
+
+          <IndentHistoryModal 
+            isOpen={isHistoryOpen}
+            onClose={() => setIsHistoryOpen(false)}
+          />
+        </Section>
+      )}
+    </>
   );
 }

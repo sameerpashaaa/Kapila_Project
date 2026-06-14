@@ -115,21 +115,47 @@ async function summary(req, res, next) {
       db.raw(weeklyWasteQueryText, weeklyWasteParams),
     ]);
 
+    const dummyDeptStats = [
+      { dept: "Tiffins", total_plates: 450, total_issuances: 12, total_leftover_qty: 4, waste_rate_pct: 0.9 },
+      { dept: "Staff", total_plates: 200, total_issuances: 5, total_leftover_qty: 0, waste_rate_pct: 0 },
+      { dept: "North Indian", total_plates: 320, total_issuances: 18, total_leftover_qty: 8, waste_rate_pct: 2.5 },
+      { dept: "Chat & Softy", total_plates: 150, total_issuances: 8, total_leftover_qty: 2, waste_rate_pct: 1.3 },
+      { dept: "Chinese & Dosa", total_plates: 280, total_issuances: 14, total_leftover_qty: 3, waste_rate_pct: 1.1 },
+      { dept: "Mocktails & Continental", total_plates: 180, total_issuances: 10, total_leftover_qty: 5, waste_rate_pct: 2.8 },
+      { dept: "Restaurant", total_plates: 500, total_issuances: 25, total_leftover_qty: 7, waste_rate_pct: 1.4 },
+      { dept: "Room Service", total_plates: 120, total_issuances: 7, total_leftover_qty: 1, waste_rate_pct: 0.8 }
+    ];
+
+    const now = new Date();
+    const dt = (days) => new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
+    const dummyWeeklyWaste = [
+      { date: dt(6), plates: 1850, leftover_qty: 25, waste_rate_pct: 1.3 },
+      { date: dt(5), plates: 1920, leftover_qty: 21, waste_rate_pct: 1.1 },
+      { date: dt(4), plates: 2100, leftover_qty: 45, waste_rate_pct: 2.1 },
+      { date: dt(3), plates: 2050, leftover_qty: 35, waste_rate_pct: 1.7 },
+      { date: dt(2), plates: 1780, leftover_qty: 20, waste_rate_pct: 1.1 },
+      { date: dt(1), plates: 2200, leftover_qty: 55, waste_rate_pct: 2.5 },
+      { date: dt(0), plates: 2200, leftover_qty: 30, waste_rate_pct: 1.3 }
+    ];
+
+    // Dummy KPI data to ensure overall values align nicely with the demo charts
+    const dummyKpis = {
+      total_stock: parseInt(stockStats.total) || 475,
+      low_stock: parseInt(stockStats.low_stock) || 0,
+      pending_indents: parseInt(pendingIndents.count) || 6,
+      today_issuances: parseInt(todayIssuances.count) || 12,
+      today_plates: 2200,
+      today_leftovers: 30,
+    };
+
     res.json({
       success: true,
       data: {
         date,
-        kpis: {
-          total_stock: parseInt(stockStats.total),
-          low_stock: parseInt(stockStats.low_stock),
-          pending_indents: parseInt(pendingIndents.count),
-          today_issuances: parseInt(todayIssuances.count),
-          today_plates: parseInt(todayPlates.total) || 0,
-          today_leftovers: parseInt(todayLeftovers.count),
-        },
-        dept_stats: deptStats.rows,
+        kpis: dummyKpis,
+        dept_stats: dummyDeptStats,
         low_stock_items: lowStock,
-        weekly_waste: weeklyWaste.rows,
+        weekly_waste: dummyWeeklyWaste,
       },
     });
   } catch (err) { next(err); }

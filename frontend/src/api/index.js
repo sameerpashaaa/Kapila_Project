@@ -8,6 +8,7 @@ export const stock = {
   ledger:   (params) => api.get("/stock/ledger", params),
   insights: () => api.get("/stock/insights"),
   available: (names) => api.get("/stock/available", { names: Array.isArray(names) ? names.join(",") : names }),
+  reconcile: (body) => api.post("/stock/reconcile", body),
 };
 
 export const indents = {

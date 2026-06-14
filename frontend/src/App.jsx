@@ -30,6 +30,10 @@ import UserManagementScreen from "./screens/UserManagement";
 import AuditLogsScreen from "./screens/AuditLogs";
 import LoginScreen from "./screens/Login";
 
+import StoreManagerHome from "./screens/StoreManagerHome";
+import StoreManagerAvailableStock from "./screens/StoreManagerAvailableStock";
+import StoreManagerStockPurchase from "./screens/StoreManagerStockPurchase";
+
 const NAV_CATEGORIES = [
   {
     title: "General",
@@ -108,10 +112,19 @@ function Inner() {
   }, [isAuthenticated, refreshStockNames]);
 
   useEffect(() => {
-    if (!loading && isAuthenticated && visibleNavItems.length && !hasPermission(SCREEN_PERMISSIONS[screen])) {
-      setScreen(visibleNavItems[0].id);
+    if (!loading && isAuthenticated) {
+      const isStoreManager = roles.some((role) => role.key === "store_manager");
+      if (isStoreManager) {
+        if (!screen.startsWith("store_manager_")) {
+          setScreen("store_manager_home");
+        }
+      } else {
+        if (visibleNavItems.length && !hasPermission(SCREEN_PERMISSIONS[screen])) {
+          setScreen(visibleNavItems[0].id);
+        }
+      }
     }
-  }, [loading, isAuthenticated, visibleNavItems, screen, hasPermission, setScreen]);
+  }, [loading, isAuthenticated, visibleNavItems, screen, hasPermission, setScreen, roles]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -142,6 +155,11 @@ function Inner() {
     chef_stats: <ProtectedScreen permission="chef_stats.view"><ChefStatsScreen /></ProtectedScreen>,
     users: <ProtectedScreen permission="users.view"><UserManagementScreen /></ProtectedScreen>,
     audit_logs: <ProtectedScreen permission="audit_logs.view"><AuditLogsScreen /></ProtectedScreen>,
+    
+    store_manager_home: <ProtectedScreen permission="stock.view"><StoreManagerHome /></ProtectedScreen>,
+    store_manager_available_stock: <ProtectedScreen permission="stock.view"><StoreManagerAvailableStock /></ProtectedScreen>,
+    store_manager_stock_purchase: <ProtectedScreen permission="stock.create"><StoreManagerStockPurchase /></ProtectedScreen>,
+    store_manager_store_issuance: <ProtectedScreen permission="issuances.create"><IssuanceScreen /></ProtectedScreen>,
   };
 
   const handleNavigation = (id) => {
@@ -174,6 +192,10 @@ function Inner() {
     return <LoginScreen />;
   }
 
+  const isStoreManagerRoute = screen.startsWith("store_manager_");
+  const isStoreManager = roles.some((role) => role.key === "store_manager");
+  const showSidebar = !(isStoreManager && isStoreManagerRoute);
+
   return (
     <>
       <style>{globalCss}</style>
@@ -192,22 +214,23 @@ function Inner() {
         )}
 
         {/* ═══ SIDEBAR ═══ */}
-        <aside style={{
-          width: SIDEBAR_WIDTH,
-          background: "var(--color-bg-sidebar)",
-          borderRight: "1px solid var(--sidebar-border)",
-          boxShadow: "var(--shadow-sidebar)",
-          display: "flex",
-          flexDirection: "column",
-          position: isMobile ? "fixed" : "relative",
-          top: 0, bottom: 0, left: 0,
-          transform: isMobile ? (isSidebarOpen ? "translateX(0)" : `translateX(-${SIDEBAR_WIDTH}px)`) : "none",
-          transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
-          zIndex: 100,
-          flexShrink: 0,
-          overflowY: "auto",
-          scrollbarWidth: "thin"
-        }}>
+        {showSidebar && (
+          <aside style={{
+            width: SIDEBAR_WIDTH,
+            background: "var(--color-bg-sidebar)",
+            borderRight: "1px solid var(--sidebar-border)",
+            boxShadow: "var(--shadow-sidebar)",
+            display: "flex",
+            flexDirection: "column",
+            position: isMobile ? "fixed" : "relative",
+            top: 0, bottom: 0, left: 0,
+            transform: isMobile ? (isSidebarOpen ? "translateX(0)" : `translateX(-${SIDEBAR_WIDTH}px)`) : "none",
+            transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
+            zIndex: 100,
+            flexShrink: 0,
+            overflowY: "auto",
+            scrollbarWidth: "thin"
+          }}>
           {/* Logo */}
           <div style={{
             display: "flex", alignItems: "center",
@@ -323,55 +346,58 @@ function Inner() {
             <span style={{ fontSize: 11, color: "var(--sidebar-category)", fontWeight: 500 }}>PostgreSQL · Live v1.0.0</span>
           </div>
         </aside>
+        )}
 
         {/* ═══ MAIN AREA ═══ */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
           
           {/* Top Bar */}
-          <header style={{
-            height: 52,
-            display: "flex", alignItems: "center",
-            padding: "0 24px",
-            background: COLORS.surface,
-            borderBottom: `1px solid ${COLORS.border}`,
-            gap: 12,
-            flexShrink: 0,
-            zIndex: 10
-          }}>
-            {isMobile && (
-              <button
-                onClick={() => setIsSidebarOpen(true)}
-                aria-label="Open sidebar"
-                style={{ background: "none", border: "none", fontSize: 20, color: COLORS.text, cursor: "pointer", display: "flex", padding: 4 }}
-              >
-                ☰
-              </button>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.muted }}>
-              <span style={{ fontWeight: 600, color: COLORS.text }}>
-                {activeNavItem?.label || "Dashboard"}
-              </span>
-            </div>
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
-              <button onClick={logout} title="Logout" aria-label="Logout" style={{ width: 32, height: 32, borderRadius: "50%", background: COLORS.surface, border: `1px solid ${COLORS.border}`, display: "grid", placeItems: "center", cursor: "pointer" }}>
-                <LogOut size={15} color={COLORS.muted} />
-              </button>
-              <div style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: COLORS.brand + "20",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 600, color: COLORS.brand, fontSize: 13
-              }} title={user?.name}>
-                {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+          {showSidebar && (
+            <header style={{
+              height: 52,
+              display: "flex", alignItems: "center",
+              padding: "0 24px",
+              background: COLORS.surface,
+              borderBottom: `1px solid ${COLORS.border}`,
+              gap: 12,
+              flexShrink: 0,
+              zIndex: 10
+            }}>
+              {isMobile && (
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  aria-label="Open sidebar"
+                  style={{ background: "none", border: "none", fontSize: 20, color: COLORS.text, cursor: "pointer", display: "flex", padding: 4 }}
+                >
+                  ☰
+                </button>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.muted }}>
+                <span style={{ fontWeight: 600, color: COLORS.text }}>
+                  {activeNavItem?.label || "Dashboard"}
+                </span>
               </div>
-            </div>
-          </header>
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
+                <button onClick={logout} title="Logout" aria-label="Logout" style={{ width: 32, height: 32, borderRadius: "50%", background: COLORS.surface, border: `1px solid ${COLORS.border}`, display: "grid", placeItems: "center", cursor: "pointer" }}>
+                  <LogOut size={15} color={COLORS.muted} />
+                </button>
+                <div style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: COLORS.brand + "20",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontWeight: 600, color: COLORS.brand, fontSize: 13
+                }} title={user?.name}>
+                  {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </div>
+              </div>
+            </header>
+          )}
 
           {/* Scrollable Content */}
           <main style={{
             flex: 1,
             overflowY: "auto",
-            padding: "20px 24px",
+            padding: isStoreManagerRoute ? 0 : "20px 24px",
             backgroundColor: COLORS.bg
           }}>
             {screens[screen]}
