@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Section from "../../components/Section";
 import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
@@ -16,14 +16,18 @@ const LIMIT = 20;
 
 export default function StoreIssuancePage() {
   const { roles } = useAuth();
-  const { setCurrentScreen } = useAppContext();
+  const { setCurrentScreen, setNavBlocker } = useAppContext();
   const isStoreManager = roles.some((r) => r.key === "store_manager");
 
   const [pendingIndents, setPendingIndents] = useState([]);
   const [selectedIndent, setSelectedIndent] = useState(null);
   const [issueQtys, setIssueQtys] = useState({});
   const [availableStock, setAvailableStock] = useState({});
+  const [confirmedItems, setConfirmedItems] = useState(new Set());
   
+  const pendingIssueRef = useRef(new Map());
+  const issuedRef = useRef(false);
+
   const [scanText, setScanText] = useState("");
   const [scanning, setScanning] = useState(false);
   const [msg, setMsg] = useState("");
@@ -41,8 +45,57 @@ export default function StoreIssuancePage() {
     });
   }, []);
 
+  const autoIssue = useCallback(async () => {
+    if (issuedRef.current) return;
+    if (pendingIssueRef.current.size === 0) return;
+
+    issuedRef.current = true;
+    const issueItems = Array.from(pendingIssueRef.current.values());
+
+    try {
+      await api.issuances.create({
+        indent_id: selectedIndent.id,
+        dept: selectedIndent.dept,
+        date: today(),
+        scanned: false,
+        items: issueItems,
+      });
+      setSelectedIndent(null);
+      setConfirmedItems(new Set());
+      pendingIssueRef.current.clear();
+      setMsg("Material issued and stock updated ✓");
+      setTimeout(() => setMsg(""), 3000);
+      loadIssuances({ page: 1 });
+      api.indents.list({ status: "pending", limit: 100 }).then((r) => {
+        if (r.success) setPendingIndents(r.data);
+      });
+    } catch (e) {
+      issuedRef.current = false;
+      setMsg("Error: " + e.message);
+      setTimeout(() => setMsg(""), 3000);
+      throw e;
+    }
+  }, [selectedIndent, issueQtys]);
+
   const handleSelectIndent = async (ind) => {
+    if (pendingIssueRef.current.size > 0 && !issuedRef.current) {
+      if (ind?.id === selectedIndent?.id) return;
+      const confirmed = window.confirm(
+        `You have ${pendingIssueRef.current.size} confirmed item(s) not yet issued.\n\nThey will be auto-issued now before switching indents. Continue?`
+      );
+      if (!confirmed) return;
+      try {
+        await autoIssue();
+      } catch (err) {
+        alert("Could not auto-issue confirmed items. Please use 'Issue & Update Stock' before switching.");
+        return;
+      }
+    }
+
     setSelectedIndent(ind);
+    setConfirmedItems(new Set());
+    pendingIssueRef.current.clear();
+    issuedRef.current = false;
     if (!ind) {
       setIssueQtys({});
       setAvailableStock({});
@@ -69,37 +122,91 @@ export default function StoreIssuancePage() {
     setIssueQtys(prev => ({ ...prev, [idx]: value }));
   };
 
-  const handleIssue = async () => {
-    if (!selectedIndent) return;
-    
-    const issueItems = selectedIndent.items.map((it, idx) => ({
-      name: it.name,
-      qty: parseFloat(it.qty),
-      issued: parseFloat(issueQtys[idx] ?? it.qty),
-      unit: it.unit || "kg",
-      item_code: it.item_code,
-    }));
+  const handleToggleConfirm = (idx) => {
+    if (confirmedItems.has(idx)) return;
+    setConfirmedItems((prev) => {
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
 
-    try {
-      await api.issuances.create({
-        indent_id: selectedIndent.id,
-        dept: selectedIndent.dept,
-        date: today(),
-        scanned: false,
-        items: issueItems,
+    const item = selectedIndent?.items[idx];
+    if (item) {
+      pendingIssueRef.current.set(idx, {
+        name: item.name,
+        qty: parseFloat(item.qty),
+        issued: parseFloat(issueQtys[idx] ?? item.qty),
+        unit: item.unit || "kg",
+        item_code: item.item_code,
       });
-      setSelectedIndent(null);
-      setMsg("Material issued and stock updated ✓");
-      setTimeout(() => setMsg(""), 3000);
-      loadIssuances({ page: 1 });
-      api.indents.list({ status: "pending", limit: 100 }).then((r) => {
-        if (r.success) setPendingIndents(r.data);
-      });
-    } catch (e) { 
-      setMsg("Error: " + e.message); 
-      setTimeout(() => setMsg(""), 3000);
     }
   };
+
+  const handleIssue = async () => {
+    if (!selectedIndent) return;
+    if (confirmedItems.size === 0) return;
+    await autoIssue();
+  };
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (pendingIssueRef.current.size === 0 || issuedRef.current) return;
+
+      autoIssue().catch(console.error);
+
+      const token = getAccessToken();
+      const payload = JSON.stringify({
+        token,
+        indentId: selectedIndent?.id,
+        items: Array.from(pendingIssueRef.current.values()),
+      });
+      const blob = new Blob([payload], { type: "application/json" });
+      navigator.sendBeacon("/api/store-issuance/auto-issue", blob);
+
+      e.preventDefault();
+      e.returnValue = "You have confirmed items that haven't been fully issued. Leaving now will auto-issue them.";
+      return e.returnValue;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [autoIssue, selectedIndent]);
+
+  useEffect(() => {
+    if (setNavBlocker) {
+      setNavBlocker(() => async (newScreen) => {
+        if (pendingIssueRef.current.size > 0 && !issuedRef.current) {
+          try {
+            await autoIssue();
+            return true;
+          } catch (e) {
+             alert("Auto-issue failed. Please issue manually before leaving.");
+             return false;
+          }
+        }
+        return true;
+      });
+    }
+    return () => {
+      if (setNavBlocker) setNavBlocker(null);
+    };
+  }, [autoIssue, setNavBlocker]);
+
+  // Sync unmount / screen change fallback (fires beacon to backend synchronously)
+  useEffect(() => {
+    return () => {
+      if (pendingIssueRef.current.size > 0 && !issuedRef.current) {
+        const token = getAccessToken();
+        const payload = JSON.stringify({
+          token,
+          indentId: selectedIndent?.id,
+          items: Array.from(pendingIssueRef.current.values()),
+        });
+        const blob = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon("/api/store-issuance/auto-issue", blob);
+      }
+    };
+  }, [selectedIndent]);
 
   const handleScan = async (file) => {
     if (!file) return;
@@ -203,6 +310,8 @@ export default function StoreIssuancePage() {
               availableStock={availableStock}
               onQtyChange={handleQtyChange}
               onShowHistory={() => setIsHistoryOpen(true)}
+              confirmedItems={confirmedItems}
+              onToggleConfirm={handleToggleConfirm}
             />
             
             <IssuanceHistory 
@@ -236,6 +345,8 @@ export default function StoreIssuancePage() {
             availableStock={availableStock}
             onQtyChange={handleQtyChange}
             onShowHistory={() => setIsHistoryOpen(true)}
+            confirmedItems={confirmedItems}
+            onToggleConfirm={handleToggleConfirm}
           />
           
           <IssuanceHistory 

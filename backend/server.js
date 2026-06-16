@@ -27,6 +27,63 @@ app.use(express.urlencoded({ limit: "15mb", extended: true }));
 app.use("/api/auth", require("./routes/auth"));
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
+const { verifyAccessToken } = require("./services/authService");
+const { getUserAuthContext } = require("./services/permissionService");
+const db = require("./db");
+const issuanceController = require("./controllers/issuanceController");
+
+app.post("/api/store-issuance/auto-issue", async (req, res, next) => {
+  try {
+    let data = req.body;
+    if (typeof data === "string") {
+      try { data = JSON.parse(data); } catch (e) {}
+    }
+    const { token, indentId, items } = data;
+    if (!token) {
+      return res.status(401).json({ success: false, error: "Authentication required" });
+    }
+    const payload = verifyAccessToken(token);
+    const user = await getUserAuthContext(parseInt(payload.sub, 10));
+    if (!user || !user.is_active) {
+      return res.status(401).json({ success: false, error: "User inactive or not found" });
+    }
+    
+    req.user = { ...user, permissions: new Set(user.permissions || []) };
+    
+    if (!req.user.permissions.has("issuances.create")) {
+      return res.status(403).json({ success: false, error: "Forbidden" });
+    }
+
+    const indent = await db("indents").where("id", indentId).first();
+    if (!indent) {
+      return res.status(404).json({ success: false, error: "Indent not found" });
+    }
+    
+    // Idempotency check: 15-second window for duplicate indent issuance
+    const fifteenSecondsAgo = new Date(Date.now() - 15000).toISOString();
+    const existing = await db("issuances")
+      .where("indent_id", indentId)
+      .andWhere("created_at", ">=", fifteenSecondsAgo)
+      .first();
+    if (existing) {
+      return res.status(200).json({ success: true, message: "Duplicate request ignored", data: existing });
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    req.body = {
+      indent_id: indentId,
+      dept: indent.dept,
+      date: todayStr,
+      scanned: false,
+      items
+    };
+
+    return issuanceController.create(req, res, next);
+  } catch (err) {
+    return res.status(401).json({ success: false, error: "Invalid token or session expired" });
+  }
+});
+
 app.use("/api", authenticate);
 
 app.use("/api/users",     require("./routes/users"));
@@ -49,6 +106,7 @@ app.use("/api/transfers",       require("./routes/transfers"));
 app.use("/api/reorder-points",  require("./routes/reorderPoints"));
 app.use("/api/approved-delivery", require("./routes/approvedDelivery"));
 app.use("/api/chef-stats",  require("./routes/chefStats"));
+app.use("/api/production-plans", require("./routes/productionPlans"));
 app.use("/api",                 require("./routes/recipes"));
 
 // AI health check — tells the frontend if Gemini API is configured

@@ -10,6 +10,15 @@ export function AppProvider({ children }) {
   const [stocks, setStocks] = useState([]);
   const [currentScreen, setCurrentScreen] = useState("dashboard");
   const [indentPreFill, setIndentPreFill] = useState(null);
+  const [navBlocker, setNavBlocker] = useState(null);
+
+  const changeScreen = useCallback(async (newScreen) => {
+    if (navBlocker) {
+      const allowed = await navBlocker(newScreen);
+      if (!allowed) return;
+    }
+    setCurrentScreen(newScreen);
+  }, [navBlocker]);
 
   const refreshStockNames = useCallback(async () => {
     try {
@@ -25,9 +34,10 @@ export function AppProvider({ children }) {
       stocks, 
       refreshStockNames, 
       currentScreen, 
-      setCurrentScreen,
+      setCurrentScreen: changeScreen,
       indentPreFill,
-      setIndentPreFill
+      setIndentPreFill,
+      setNavBlocker
     }}>
       {children}
     </AppContext.Provider>

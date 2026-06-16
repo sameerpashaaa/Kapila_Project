@@ -14,6 +14,8 @@ export default function IssuanceTopSection({
   availableStock,
   onQtyChange,
   onShowHistory,
+  confirmedItems,
+  onToggleConfirm,
 }) {
   return (
     <div
@@ -50,6 +52,9 @@ export default function IssuanceTopSection({
           issueQtys={issueQtys}
           availableStock={availableStock}
           onQtyChange={onQtyChange}
+          confirmedItems={confirmedItems}
+          onToggleConfirm={onToggleConfirm}
+          onIssue={onIssue}
         />
       </div>
     </div>

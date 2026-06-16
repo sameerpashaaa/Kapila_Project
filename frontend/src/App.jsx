@@ -7,7 +7,8 @@ import ProtectedScreen from "./components/ProtectedScreen";
 import { 
   LayoutDashboard, Package, Factory, Building2, Receipt, Inbox, Bell, 
   Scale, ArrowLeftRight, CalendarRange, ClipboardList, Send, ChefHat, 
-  ArchiveRestore, Trash2, Search, Users, ShieldCheck, LogOut, BarChart3
+  ArchiveRestore, Trash2, Search, Users, ShieldCheck, LogOut, BarChart3,
+  CalendarCheck
 } from "lucide-react";
 
 import Dashboard      from "./screens/Dashboard";
@@ -23,12 +24,12 @@ import GoodsReceiptScreen    from "./screens/GoodsReceipt";
 import ReconciliationScreen  from "./screens/Reconciliation";
 import TransfersScreen       from "./screens/Transfers";
 import ReorderPointsScreen   from "./screens/ReorderPoints";
-import MenuPlannerScreen     from "./screens/MenuPlanner";
 import WasteAnalyticsScreen   from "./screens/WasteAnalytics";
 import ChefStatsScreen        from "./screens/ChefStats";
 import UserManagementScreen from "./screens/UserManagement";
 import AuditLogsScreen from "./screens/AuditLogs";
 import LoginScreen from "./screens/Login";
+import ProductionPlannerScreen from "./screens/ProductionPlanner";
 
 import StoreManagerHome from "./screens/StoreManagerHome";
 import StoreManagerAvailableStock from "./screens/StoreManagerAvailableStock";
@@ -67,7 +68,7 @@ const NAV_CATEGORIES = [
   {
     title: "Kitchen & Depts",
     items: [
-      { id: "menu_planner", label: "Menu Planner",    permission: "menu.view", icon: <CalendarRange size={16} /> },
+      { id: "production_planner", label: "Production Planner", permission: "recipes.view", icon: <CalendarCheck size={16} /> },
       { id: "indent",       label: "Indent Material", permission: "indents.view", icon: <ClipboardList size={16} /> },
       { id: "issuance",     label: "Store Issuance",  permission: "issuances.view", icon: <Send size={16} /> },
       { id: "production",   label: "Daily Production",permission: "production.view", icon: <ChefHat size={16} /> },
@@ -150,7 +151,7 @@ function Inner() {
     issuance:   <ProtectedScreen permission="issuances.view"><IssuanceScreen /></ProtectedScreen>,
     production: <ProtectedScreen permission="production.view"><ProductionScreen /></ProtectedScreen>,
     leftover:   <ProtectedScreen permission="leftovers.view"><LeftoverScreen /></ProtectedScreen>,
-    menu_planner: <ProtectedScreen permission="menu.view"><MenuPlannerScreen /></ProtectedScreen>,
+    production_planner: <ProtectedScreen permission="recipes.view"><ProductionPlannerScreen /></ProtectedScreen>,
     waste_analytics: <ProtectedScreen permission="waste_analytics.view"><WasteAnalyticsScreen /></ProtectedScreen>,
     chef_stats: <ProtectedScreen permission="chef_stats.view"><ChefStatsScreen /></ProtectedScreen>,
     users: <ProtectedScreen permission="users.view"><UserManagementScreen /></ProtectedScreen>,

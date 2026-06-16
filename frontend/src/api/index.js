@@ -108,6 +108,14 @@ export const recipes = {
   remove: (id) => api.delete(`/recipes/${id}`),
 };
 
+export const productionPlans = {
+  list: (params) => api.get("/production-plans", params),
+  create: (body) => api.post("/production-plans", body),
+  update: (id, body) => api.patch(`/production-plans/${id}`, body),
+  remove: (id) => api.delete(`/production-plans/${id}`),
+  analytics: (params) => api.get("/production-plans/analytics", params),
+};
+
 export const menu = {
   list: (params) => api.get("/menu", params),
   create: (body) => api.post("/menu", body),

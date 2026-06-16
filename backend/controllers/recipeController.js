@@ -35,7 +35,7 @@ async function listRecipes(req, res, next) {
 
 async function createRecipe(req, res, next) {
   try {
-    const { name, category, description } = req.body;
+    const { name, category, description, instructions, base_plates } = req.body;
     const items = normalizeRecipeItems(req.body.items);
 
     if (!String(name || "").trim()) {
@@ -51,6 +51,8 @@ async function createRecipe(req, res, next) {
           name: String(name).trim(),
           category: String(category || "GENERAL").trim(),
           description: String(description || "").trim() || null,
+          instructions: instructions ? String(instructions).trim() : null,
+          base_plates: parseInt(base_plates || 100),
         })
         .returning("*");
 
@@ -86,6 +88,8 @@ async function updateRecipe(req, res, next) {
           name: String(req.body.name).trim(),
           category: String(req.body.category || "GENERAL").trim(),
           description: String(req.body.description || "").trim() || null,
+          instructions: req.body.instructions ? String(req.body.instructions).trim() : null,
+          base_plates: parseInt(req.body.base_plates || 100),
         });
 
       await trx("recipe_items").where("recipe_id", id).del();

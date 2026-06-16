@@ -62,7 +62,7 @@ export default function IssuanceLeftPanel({
     });
   }
 
-  const canIssue = !!selected;
+
 
   return (
     <Card style={{ display: "flex", flexDirection: "column", height: "100%", gap: 0, padding: "20px" }}>
@@ -245,28 +245,7 @@ export default function IssuanceLeftPanel({
 
       <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
 
-      {/* Issue button */}
-      <button
-        onClick={onIssue}
-        disabled={!canIssue}
-        style={{
-          width: "100%",
-          height: 46,
-          backgroundColor: canIssue ? "#111827" : "#e2e8f0",
-          color: canIssue ? "#ffffff" : "#94a3b8",
-          border: "none",
-          borderRadius: 10,
-          fontSize: 14,
-          fontWeight: 700,
-          cursor: canIssue ? "pointer" : "not-allowed",
-          transition: "background-color 0.15s",
-          letterSpacing: "0.01em",
-        }}
-        onMouseEnter={(e) => { if (canIssue) e.currentTarget.style.backgroundColor = "#1f2937"; }}
-        onMouseLeave={(e) => { if (canIssue) e.currentTarget.style.backgroundColor = "#111827"; }}
-      >
-        Issue &amp; Update Stock
-      </button>
+
     </Card>
   );
 }
