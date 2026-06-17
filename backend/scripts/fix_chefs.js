@@ -19,6 +19,23 @@ async function fixChefs() {
       return;
     }
 
+    // Sync chef role permissions
+    const { ROLE_PERMISSION_KEYS } = require("../config/permissions");
+    const chefPermissionKeys = ROLE_PERMISSION_KEYS.chef;
+
+    const permissions = await db("permissions")
+      .whereIn("key", chefPermissionKeys)
+      .select("id", "key");
+
+    await db("role_permissions").where("role_id", chefRole.id).del();
+
+    const chefRolePermissions = permissions.map((p) => ({
+      role_id: chefRole.id,
+      permission_id: p.id,
+    }));
+    await db("role_permissions").insert(chefRolePermissions);
+    console.log(`Synced ${chefRolePermissions.length} permissions for Chef role.`);
+
     // 3. Create or update a chef for each department
     const passwordHash = await bcrypt.hash("ChangeMe123!", 12);
     

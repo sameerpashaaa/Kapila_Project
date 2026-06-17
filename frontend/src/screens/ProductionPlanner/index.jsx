@@ -13,6 +13,7 @@ import ErrorMsg from "../../components/ErrorMsg";
 import { COLORS } from "../../styles/colors";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
+import { useAuth } from "../../context/AuthContext";
 import { today } from "../../utils/dates";
 
 const CATEGORIES = ["Starter", "Main Course", "Dessert", "Beverage"];
@@ -42,6 +43,8 @@ const toRecipeDraft = (recipe) => ({
 
 export default function ProductionPlannerScreen() {
   const { setCurrentScreen, setIndentPreFill, stocks = [] } = useAppContext();
+  const { roles } = useAuth();
+  const isChef = roles.some((r) => r.key === "chef");
   const [activeTab, setActiveTab] = useState("library"); // "library", "planning", "outcomes", "analytics"
   
   // Recipe Library states
@@ -379,7 +382,11 @@ export default function ProductionPlannerScreen() {
   }, [productionPlans, scheduleFilterDate]);
 
   return (
-    <Section title="Production Planner" sub="Scale recipe ingredients, generate department indents, schedule menus, and track daily kitchen waste">
+    <Section 
+      title="Production Planner" 
+      sub="Scale recipe ingredients, generate department indents, schedule menus, and track daily kitchen waste"
+      onBack={isChef ? () => setCurrentScreen("chef_home") : null}
+    >
       
       {/* Success Notification banner */}
       {successMsg && (

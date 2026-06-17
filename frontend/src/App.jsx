@@ -32,6 +32,7 @@ import ProductionPlannerScreen from "./screens/ProductionPlanner";
 import StoreManagerHome from "./screens/StoreManagerHome";
 import StoreManagerAvailableStock from "./screens/StoreManagerAvailableStock";
 import StoreManagerStockPurchase from "./screens/StoreManagerStockPurchase";
+import ChefHome from "./screens/ChefHome";
 
 const NAV_CATEGORIES = [
   {
@@ -110,9 +111,15 @@ function Inner() {
   useEffect(() => {
     if (!loading && isAuthenticated) {
       const isStoreManager = roles.some((role) => role.key === "store_manager");
+      const isChef = roles.some((role) => role.key === "chef");
+      
       if (isStoreManager) {
         if (!screen.startsWith("store_manager_")) {
           setScreen("store_manager_home");
+        }
+      } else if (isChef) {
+        if (!hasPermission(SCREEN_PERMISSIONS[screen])) {
+          setScreen("chef_home");
         }
       } else {
         if (visibleNavItems.length && !hasPermission(SCREEN_PERMISSIONS[screen])) {
@@ -158,6 +165,8 @@ function Inner() {
     store_manager_available_stock: <ProtectedScreen permission="stock.view"><StoreManagerAvailableStock /></ProtectedScreen>,
     store_manager_stock_purchase: <ProtectedScreen permission="stock.create"><StoreManagerStockPurchase /></ProtectedScreen>,
     store_manager_store_issuance: <ProtectedScreen permission="issuances.create"><IssuanceScreen /></ProtectedScreen>,
+    
+    chef_home: <ProtectedScreen permission="production.view"><ChefHome /></ProtectedScreen>,
   };
 
   const handleNavigation = (id) => {
@@ -192,7 +201,8 @@ function Inner() {
 
   const isStoreManagerRoute = screen.startsWith("store_manager_");
   const isStoreManager = roles.some((role) => role.key === "store_manager");
-  const showSidebar = !(isStoreManager && isStoreManagerRoute);
+  const isChef = roles.some((role) => role.key === "chef");
+  const showSidebar = !((isStoreManager && isStoreManagerRoute) || isChef);
 
   return (
     <>
@@ -235,13 +245,20 @@ function Inner() {
             padding: "14px 16px", borderBottom: "1px solid var(--sidebar-border)",
             flexShrink: 0
           }}>
-            <div style={{
-              background: "#1E293B",
-              borderRadius: 10,
+            <div 
+              onClick={() => {
+                if (isStoreManager) setScreen("store_manager_home");
+                else if (isChef) setScreen("chef_home");
+                else setScreen("dashboard");
+                if (isMobile) setIsSidebarOpen(false);
+              }}
+              style={{
+              backgroundColor: "#1E293B", borderRadius: 8,
               padding: "8px 14px",
               display: "flex", alignItems: "center", justifyContent: "center",
               width: "100%",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.18)"
+              boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+              cursor: "pointer"
             }}>
               <img
                 src={kapilaLogo}

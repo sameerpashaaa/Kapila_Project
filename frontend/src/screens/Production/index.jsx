@@ -10,6 +10,7 @@ import ErrorMsg from "../../components/ErrorMsg";
 import { COLORS, DEPARTMENTS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
+import { useAppContext } from "../../context/AppContext";
 import { Utensils, ArchiveRestore, BarChart3 } from "lucide-react";
 
 import { today } from "../../utils/dates";
@@ -21,7 +22,9 @@ import ProtectedScreen from "../../components/ProtectedScreen";
 const LIMIT = 20;
 
 export default function ProductionScreen() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, roles } = useAuth();
+  const { setCurrentScreen } = useAppContext();
+  const isChef = roles.some((r) => r.key === "chef");
 
   const tabs = [];
   if (hasPermission("production.view")) {
@@ -69,7 +72,11 @@ export default function ProductionScreen() {
   };
 
   return (
-    <Section title="Daily Production & Waste" sub="Log daily portions prepared, track leftovers, and view waste analytics">
+    <Section 
+      title="Daily Production & Waste" 
+      sub="Log finished plates, record leftovers, and manage food waste"
+      onBack={isChef ? () => setCurrentScreen("chef_home") : null}
+    >
       {/* Tabs Menu */}
       <div style={{ display: "flex", borderBottom: `1px solid ${COLORS.border}`, marginBottom: 24, gap: 8, flexShrink: 0 }}>
         {tabs.map((tab) => (

@@ -11,6 +11,7 @@ import { COLORS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
+import { useAuth } from "../../context/AuthContext";
 import { useLocalSpeech } from "../../hooks/useLocalSpeech";
 import { Plus, Zap, Mic, History, Trash2, Printer, Search, Inbox, ChevronDown, ChevronUp, Camera } from "lucide-react";
 
@@ -158,7 +159,9 @@ function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange,
 
 
 export default function IndentScreen() {
-  const { stockNames, stocks, indentPreFill, setIndentPreFill } = useAppContext();
+  const { stockNames, stocks, indentPreFill, setIndentPreFill, setCurrentScreen } = useAppContext();
+  const { roles } = useAuth();
+  const isChef = roles.some((r) => r.key === "chef");
   const [deptsList, setDeptsList] = useState([]);
   const [deptItemsMap, setDeptItemsMap] = useState({});
   const [deptLeftovers, setDeptLeftovers] = useState([]);
@@ -829,7 +832,11 @@ export default function IndentScreen() {
 
   
   return (
-    <Section title="Indent Request" sub="Departments submit nightly material requirements">
+    <Section 
+      title="Indent Request" 
+      sub="Departments submit nightly material requirements"
+      onBack={isChef ? () => setCurrentScreen("chef_home") : null}
+    >
       <div className="indent-page-wrapper">
         
         {/* --- TOP: NEW INDENT FORM --- */}
@@ -916,12 +923,8 @@ export default function IndentScreen() {
                 </button>
               </div>
 
-              {/* Submit & Share */}
+              {/* Share Order */}
               <div style={{ marginTop: "auto" }}>
-                <button className="submit-indent-btn" onClick={submit} disabled={form.items.filter((i) => i.name && i.qty).length === 0}>
-                  Submit Indent
-                </button>
-
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #E5E7EB" }}>
                   <span style={{ color: "#64748B", fontSize: "12px", fontWeight: 500 }}>Share Order:</span>
                   <button onClick={shareWhatsApp} className="share-btn whatsapp">
@@ -933,7 +936,6 @@ export default function IndentScreen() {
                   </button>
                 </div>
               </div>
-              {msg && <p style={{ color: COLORS.success, fontSize: 12, marginTop: 12, textAlign: "center", fontWeight: 500 }}>{msg}</p>}
             </Card>
           </div>
 
@@ -1053,8 +1055,16 @@ export default function IndentScreen() {
                 </table>
               </div>
               <div style={{ padding: "12px 16px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F8FAFC" }}>
-                <button onClick={addRow} className="add-row-btn">[ + Add row ]</button>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>Total items: {form.items.filter(i => i.name).length}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                  <button onClick={addRow} className="add-row-btn">[ + Add row ]</button>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#475569" }}>Total items: {form.items.filter(i => i.name).length}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                  {msg && <span style={{ color: COLORS.success, fontSize: 13, fontWeight: 500 }}>{msg}</span>}
+                  <button className="submit-indent-btn" onClick={submit} disabled={form.items.filter((i) => i.name && i.qty).length === 0} style={{ width: "auto", padding: "8px 24px", margin: 0 }}>
+                    Submit Indent
+                  </button>
+                </div>
               </div>
             </Card>
           </div>

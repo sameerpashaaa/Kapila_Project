@@ -110,11 +110,11 @@ const ROLE_PERMISSION_KEYS = {
     "scan.indent", "scan.purchase", "scan.text",
   ],
   chef: [
-    "dashboard.view", "stock.view", "departments.view", "transfers.view", "transfers.create",
-    "menu.view", "menu.create", "menu.edit", "recipes.view", "recipes.create", "recipes.edit",
-    "indents.view", "indents.create", "indents.edit", "issuances.view", "production.view",
-    "production.create", "production.edit", "leftovers.view", "leftovers.create", "leftovers.edit",
-    "waste_analytics.view", "chef_stats.view", "search.view", "scan.text",
+    "recipes.view", "recipes.create", "recipes.edit", "recipes.delete",
+    "indents.view", "indents.create", "indents.edit", "indents.delete", "indents.approve",
+    "production.view", "production.create", "production.edit", "production.delete",
+    "leftovers.view", "leftovers.create", "leftovers.edit", "leftovers.delete",
+    "waste_analytics.view", "waste_analytics.export",
   ],
   employee: [
     "dashboard.view", "departments.view", "transfers.view", "transfers.create", "menu.view",
