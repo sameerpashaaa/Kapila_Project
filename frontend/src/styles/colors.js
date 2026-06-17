@@ -306,4 +306,199 @@ export const globalCss = `
       grid-template-columns: repeat(2, 1fr);
     }
   }
+
+  /* =============================================
+     MOBILE-FIRST UTILITY CLASSES
+     Used by Available Stock, Purchase Order, Issuance
+     ============================================= */
+
+  /* Touch targets: all interactive elements ≥44px on mobile */
+  @media (max-width: 767px) {
+    button, [role="button"], select, input[type="checkbox"] {
+      min-height: 44px;
+    }
+    input[type="checkbox"] {
+      min-width: 24px;
+      min-height: 24px;
+    }
+  }
+
+  /* Horizontal scrollable pill/chip filter bar */
+  .mob-filter-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    flex-wrap: nowrap;
+  }
+  .mob-filter-bar::-webkit-scrollbar { display: none; }
+  .mob-filter-bar .chip, .mob-filter-bar select {
+    flex-shrink: 0;
+  }
+
+  /* Mobile item card — used in Stock table, PO form, Issuance grid */
+  .mob-item-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .mob-item-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+  .mob-item-card.low-stock {
+    border-left: 3px solid var(--color-accent-red);
+    background: var(--color-accent-red-light);
+  }
+  .mob-item-card.confirmed {
+    border-left: 3px solid var(--color-accent-green);
+    background: var(--color-accent-green-light);
+  }
+  .mob-item-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mob-item-card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .mob-item-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .mob-item-field label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .mob-item-field input,
+  .mob-item-field select {
+    padding: 10px 12px;
+    font-size: 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-page);
+    color: var(--color-text-primary);
+    width: 100%;
+    min-height: 44px;
+    transition: border-color 0.2s;
+  }
+  .mob-item-field input:focus,
+  .mob-item-field select:focus {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 3px var(--color-accent-primary-light);
+    outline: none;
+  }
+
+  /* Step indicator for multi-step mobile flows */
+  .mob-step-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 12px 16px;
+    background: var(--color-bg-card);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .mob-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+  .mob-step.active {
+    color: var(--color-accent-primary);
+  }
+  .mob-step.done {
+    color: var(--color-accent-green);
+  }
+  .mob-step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .mob-step.active .mob-step-num {
+    background: var(--color-accent-primary);
+    color: white;
+    border-color: var(--color-accent-primary);
+  }
+  .mob-step.done .mob-step-num {
+    background: var(--color-accent-green);
+    color: white;
+    border-color: var(--color-accent-green);
+  }
+  .mob-step-divider {
+    width: 20px;
+    height: 1px;
+    background: var(--color-border);
+    flex-shrink: 0;
+  }
+
+  /* Slide transition for mobile step flows */
+  @keyframes slideInRight {
+    from { transform: translateX(24px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes slideInLeft {
+    from { transform: translateX(-24px); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+  }
+  .slide-in-right { animation: slideInRight 0.22s cubic-bezier(0.4,0,0.2,1); }
+  .slide-in-left  { animation: slideInLeft  0.22s cubic-bezier(0.4,0,0.2,1); }
+
+  /* Sticky bottom action bar on mobile */
+  .mob-sticky-action {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--color-bg-card);
+    border-top: 1px solid var(--color-border);
+    padding: 12px 16px;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+    z-index: 50;
+  }
+
+  /* Mobile 2×2 action button grid */
+  .mob-action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .mob-action-grid button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Mobile KPI row — 2-col compact */
+  @media (max-width: 767px) {
+    .resp-grid-3.kpi-row {
+      grid-template-columns: 1fr 1fr;
+    }
+    .resp-grid-3.kpi-row > *:last-child {
+      grid-column: 1 / -1;
+    }
+  }
 `;

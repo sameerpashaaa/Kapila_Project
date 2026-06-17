@@ -303,6 +303,7 @@ export default function StockScreen() {
                 copyPOToClipboard={copyPOToClipboard}
                 generateWhatsAppPO={generateWhatsAppPO}
                 handleReorderClick={handleReorderClick}
+                defaultCollapsed={false}
                 style={{ width: "100%" }}
               />
             </div>

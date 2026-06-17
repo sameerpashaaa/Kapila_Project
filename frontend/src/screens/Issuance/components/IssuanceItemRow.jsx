@@ -15,6 +15,8 @@ export default function IssuanceItemRow({
   const numAvail = parseFloat(available) || 0;
   const isInsufficient = numAvail < numQty;
 
+  const isDisableConfirm = isConfirmed || numAvail <= 0;
+
   return (
     <tr
       style={{
@@ -116,30 +118,36 @@ export default function IssuanceItemRow({
       {/* ✓ (CONFIRMED) CHECKBOX */}
       <td
         style={tdStyle({ width: 80, textAlign: "center" })}
-        title={isConfirmed ? "Item confirmed — cannot be undone. Use Issue & Update Stock to submit." : ""}
       >
         <button
           type="button"
           aria-label="Confirm item"
-          onClick={isConfirmed ? undefined : () => onToggleConfirm(idx)}
+          onClick={isDisableConfirm ? undefined : () => onToggleConfirm(idx)}
           disabled={isConfirmed}
-          aria-disabled={isConfirmed ? "true" : "false"}
-          title={isConfirmed ? "Item confirmed — cannot be undone. Use Issue & Update Stock to submit." : "Confirm item"}
+          aria-disabled={isDisableConfirm ? "true" : "false"}
+          title={
+            isConfirmed 
+              ? "Item confirmed — cannot be undone. Use Issue & Update Stock to submit." 
+              : numAvail <= 0 
+                ? "Cannot confirm — item is out of stock" 
+                : "Confirm item"
+          }
           style={{
             background: "none",
             border: "none",
             padding: 0,
-            cursor: isConfirmed ? "not-allowed" : "pointer",
+            cursor: isDisableConfirm ? "not-allowed" : "pointer",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             outline: "none",
             color: isConfirmed ? "#10B981" : "#cbd5e1",
+            opacity: numAvail <= 0 && !isConfirmed ? 0.35 : 1,
             pointerEvents: isConfirmed ? "none" : "auto",
-            transition: isConfirmed ? "none" : "transform 0.1s active",
+            transition: isDisableConfirm ? "none" : "transform 0.1s active",
           }}
-          onMouseDown={isConfirmed ? undefined : (e) => e.currentTarget.style.transform = "scale(0.95)"}
-          onMouseUp={isConfirmed ? undefined : (e) => e.currentTarget.style.transform = "scale(1)"}
+          onMouseDown={isDisableConfirm ? undefined : (e) => e.currentTarget.style.transform = "scale(0.95)"}
+          onMouseUp={isDisableConfirm ? undefined : (e) => e.currentTarget.style.transform = "scale(1)"}
         >
           {isConfirmed ? (
             <CheckSquare2 size={18} style={{ fill: "#10B981", color: "#ffffff" }} />

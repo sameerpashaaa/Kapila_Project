@@ -521,10 +521,11 @@ export default function IndentScreen() {
           const parsedItems = (parsed.items || []).map(it => ({
             id: Date.now() + Math.random(),
             name: it.name.toUpperCase(),
-            qty: (it.qty || "").toString(),
-            unit: it.unit || "kg",
+            qty: (it.qty != null ? it.qty : "").toString(),
+            unit: it.unit || "pcs",
             item_code: it.item_code || "KPL-NEW",
-            notes: ""
+            notes: "",
+            qtyMissing: it.qty == null,
           }));
 
           if (parsedItems.length > 0) {
@@ -537,7 +538,9 @@ export default function IndentScreen() {
               };
             });
             fetchStockLevels(parsedItems.map(it => it.name));
-            setMsg(`Successfully scanned slip: added ${parsedItems.length} items ✓`);
+            const missingQty = parsedItems.filter(it => it.qtyMissing).length;
+            const missingMsg = missingQty > 0 ? ` — ⚠ ${missingQty} item${missingQty > 1 ? "s" : ""} need quantity` : "";
+            setMsg(`Scanned: ${parsedItems.length} items added ✓${missingMsg}`);
           } else {
             setMsg("No items could be recognized from the document.");
           }
@@ -982,9 +985,10 @@ export default function IndentScreen() {
                         const isLowStock = isStockCheckActive && avail < (parseFloat(item.qty) || 0);
                         const isNewItem = item.item_code === "KPL-NEW" || !item.item_code;
                         const isActive = activeRowIdx === idx;
+                        const isQtyMissing = item.qtyMissing || (item.qty === "" && item.name);
 
                         return (
-                          <tr key={item.id || idx} className={`excel-row ${isActive ? 'active-row' : ''}`} onClick={() => setActiveRowIdx(idx)}>
+                          <tr key={item.id || idx} className={`excel-row ${isActive ? 'active-row' : ''}`} onClick={() => setActiveRowIdx(idx)} style={isQtyMissing ? { background: "#fffbeb", borderLeft: "3px solid #f59e0b" } : {}}>
                             <td className="row-num">{idx + 1}</td>
                             <td>
                               <span className={`kpl-badge ${isNewItem ? 'new' : 'existing'}`}>
@@ -1008,6 +1012,8 @@ export default function IndentScreen() {
                                 value={item.qty}
                                 onChange={(e) => updateItem(idx, "qty", e.target.value)}
                                 className="excel-input"
+                                placeholder={isQtyMissing ? "Fill qty" : ""}
+                                style={isQtyMissing ? { borderColor: "#f59e0b", background: "#fef3c7", color: "#92400e" } : {}}
                               />
                             </td>
                             <td>

@@ -44,8 +44,8 @@ const TH = ({ children, style = {} }) => (
   </th>
 );
 
-export default function IssuanceHistory({ items, total, page, loading, error, onPageChange, LIMIT }) {
-  const [isExpanded, setIsExpanded] = useState(true);
+export default function IssuanceHistory({ items, total, page, loading, error, onPageChange, LIMIT, style, defaultExpanded = true }) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [selectedIss, setSelectedIss] = useState(null);
@@ -72,6 +72,7 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
         borderRadius: 12,
         backgroundColor: "#ffffff",
         overflow: "hidden",
+        ...style,
       }}
     >
       {/* Header — matches Indent History header exactly */}
@@ -89,10 +90,10 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
           onClick={() => setIsExpanded((v) => !v)}
           style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, padding: 0 }}
         >
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, margin: 0 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: COLORS.text, margin: 0 }}>
             Issuance History
           </h2>
-          {isExpanded ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
+          {isExpanded ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#64748b" />}
         </button>
 
         {isExpanded && (

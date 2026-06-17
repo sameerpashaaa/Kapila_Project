@@ -47,7 +47,7 @@ async function ocrImage(base64Data, mimeType) {
     {
       parts: [
         {
-          text: "Perform OCR on this image. Extract all text, numbers, and words clearly. Return only the raw text extracted, exactly as it appears in the image, without any introduction, headings, or markdown."
+          text: "Perform OCR on this image. Extract all text, numbers, and words clearly. Important rules:\n- If a table cell contains a tick mark, checkmark, or check symbol (✓ √ ✗ or any handwritten tick), write the word TICK in that cell.\n- If a table cell is completely blank or empty, write the word BLANK in that cell.\n- Do NOT interpret or convert values — transcribe exactly what is visible.\nReturn only the raw text extracted, without any introduction, headings, or markdown."
         },
         {
           inlineData: {
@@ -107,9 +107,16 @@ function buildPrompt(task, rawText) {
   const VALID_DEPTS = "TIFFINS, STAFF, SI-MEALS, NORTH INDIAN, CHAT & SOFTY, CHINESE & DOSA, MOCKTAILS & CONTINENTAL, RESTAURANT, ROOM SERVICE";
 
   const prompts = {
-    indent: `You are an OCR parser for a hotel kitchen inventory system.
-Extract all indent/requisition items from the text below.
-For each item: name (string), qty (number), unit (one of: ${VALID_UNITS}, default kg).
+    indent: `You are an OCR parser for a hotel kitchen indent/requisition form.
+Extract all items from the text below and return them as structured JSON.
+
+QUANTITY RULES (strictly follow these):
+- If the quantity cell contains the word TICK (meaning a handwritten tick/checkmark was present), set qty to 1.
+- If the quantity cell contains the word BLANK, is empty, missing, or illegible, set qty to null — do NOT guess or default to 1.
+- If a numeric quantity is clearly written (e.g. 5, 10, 2), parse it as a number.
+- Items with qty null should still be included in the output; do not drop them.
+
+For each item: name (string), qty (number | null), unit (one of: ${VALID_UNITS}, default pcs for room/housekeeping items, kg for food items).
 Determine the requesting department (one of: ${VALID_DEPTS}, default SI-MEALS).
 Return ONLY valid JSON with keys "dept" (string) and "items" (array of {name, qty, unit}).
 No markdown, no explanation. Just JSON.

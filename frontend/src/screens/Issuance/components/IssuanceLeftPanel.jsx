@@ -68,7 +68,7 @@ export default function IssuanceLeftPanel({
     <Card style={{ display: "flex", flexDirection: "column", height: "100%", gap: 0, padding: "20px" }}>
       {/* Section label */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <p style={{ fontSize: 13, fontWeight: 800, color: COLORS.muted, margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
           Issue From Pending Indent
         </p>
         <button
@@ -97,7 +97,7 @@ export default function IssuanceLeftPanel({
 
       {/* Select Indent */}
       <div style={{ marginBottom: 16 }}>
-        <label style={{ fontSize: 12, color: COLORS.muted, fontWeight: 500, display: "block", marginBottom: 6 }}>
+        <label style={{ fontSize: 14, color: COLORS.text, fontWeight: 700, display: "block", marginBottom: 6 }}>
           Select Indent
         </label>
         <div style={{ position: "relative" }}>

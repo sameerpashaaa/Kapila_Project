@@ -12,6 +12,7 @@ export default defineConfig({
   },
 
   server: {
+    host: "0.0.0.0",
     port: 8008,
     strictPort: true,
     // Required headers for SharedArrayBuffer (used by WASM workers)
@@ -25,6 +26,11 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 4173,
+    strictPort: true,
   },
 })
 

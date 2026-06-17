@@ -7,6 +7,7 @@ import { COLORS } from "../../styles/colors";
 import IssuanceTopSection from "./components/IssuanceTopSection";
 import IssuanceHistory from "./components/IssuanceHistory";
 import IndentHistoryModal from "../../components/issuance/IndentHistoryModal";
+import { useBreakpoint } from "../../styles/responsive";
 
 import { useAuth } from "../../context/AuthContext";
 import { useAppContext } from "../../context/AppContext";
@@ -17,6 +18,7 @@ const LIMIT = 20;
 export default function StoreIssuancePage() {
   const { roles } = useAuth();
   const { setCurrentScreen, setNavBlocker } = useAppContext();
+  const { isMobile } = useBreakpoint();
   const isStoreManager = roles.some((r) => r.key === "store_manager");
 
   const [pendingIndents, setPendingIndents] = useState([]);
@@ -263,26 +265,23 @@ export default function StoreIssuancePage() {
           <div style={{
             backgroundColor: "white",
             borderBottom: "1px solid #E2E8F0",
-            padding: "16px 24px",
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            flexShrink: 0
+            padding: isMobile ? "12px 16px" : "16px 24px",
+            display: "flex", alignItems: "center", gap: 16, flexShrink: 0,
           }}>
             <button
               onClick={() => setCurrentScreen("store_manager_home")}
               style={{
                 background: "none",
-                border: "1px solid #E2E8F0",
+                border: "1.5px solid #E2E8F0",
                 borderRadius: "8px",
-                padding: "6px 12px",
+                padding: "8px 16px",
                 cursor: "pointer",
-                color: "#475569",
-                fontSize: "14px",
+                color: "#0F172A",
+                fontSize: "15px",
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
-                fontWeight: 500,
+                fontWeight: 700,
                 transition: "all 0.15s ease",
               }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#F1F5F9"}
@@ -290,39 +289,51 @@ export default function StoreIssuancePage() {
             >
               ← Back
             </button>
-            <h1 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#0F172A" }}>
+            <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 800, color: "#0F172A", fontFamily: "var(--font-display, inherit)" }}>
               Store Issuance
             </h1>
           </div>
 
           {/* Unified body layout */}
-          <div style={{ padding: "24px", flex: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
-            <IssuanceTopSection 
-              onScan={handleScan}
-              scanning={scanning}
-              scanText={scanText}
-              msg={msg}
-              pendingIndents={pendingIndents}
-              selectedIndent={selectedIndent}
-              onSelectIndent={handleSelectIndent}
-              onIssue={handleIssue}
-              issueQtys={issueQtys}
-              availableStock={availableStock}
-              onQtyChange={handleQtyChange}
-              onShowHistory={() => setIsHistoryOpen(true)}
-              confirmedItems={confirmedItems}
-              onToggleConfirm={handleToggleConfirm}
-            />
+          <div style={selectedIndent ? {
+            padding: "24px",
+            height: "calc(100vh - 65px)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            boxSizing: "border-box",
+            overflow: "hidden"
+          } : {
+            padding: "24px",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px"
+          }}>
+            <div style={selectedIndent ? { height: "90%", display: "flex", flexDirection: "column", minHeight: 0 } : undefined}>
+              <IssuanceTopSection 
+                onScan={handleScan} scanning={scanning} scanText={scanText} msg={msg}
+                pendingIndents={pendingIndents} selectedIndent={selectedIndent} onSelectIndent={handleSelectIndent}
+                onIssue={handleIssue} issueQtys={issueQtys} availableStock={availableStock}
+                onQtyChange={handleQtyChange} onShowHistory={() => setIsHistoryOpen(true)}
+                confirmedItems={confirmedItems} onToggleConfirm={handleToggleConfirm}
+                isMobile={isMobile}
+              />
+            </div>
             
-            <IssuanceHistory 
-              items={items}
-              total={total}
-              page={page}
-              loading={loading}
-              error={error}
-              onPageChange={(p) => loadIssuances({ page: p })}
-              LIMIT={LIMIT}
-            />
+            <div style={selectedIndent ? { height: "10%", minHeight: 0 } : undefined}>
+              <IssuanceHistory 
+                items={items}
+                total={total}
+                page={page}
+                loading={loading}
+                error={error}
+                onPageChange={(p) => loadIssuances({ page: p })}
+                LIMIT={LIMIT}
+                defaultExpanded={selectedIndent ? false : true}
+                style={selectedIndent ? { height: "100%", overflowY: "auto" } : undefined}
+              />
+            </div>
 
             <IndentHistoryModal 
               isOpen={isHistoryOpen}

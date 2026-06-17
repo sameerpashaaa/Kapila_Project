@@ -3,7 +3,7 @@ import Btn from "../Btn";
 import Pagination from "../Pagination";
 import ErrorMsg from "../ErrorMsg";
 import { COLORS } from "../../styles/colors";
-import { CheckCircle, AlertTriangle, ClipboardList, AlertCircle, Printer, Edit3, Clock } from "lucide-react";
+import { CheckCircle, AlertTriangle, ClipboardList, AlertCircle, Printer, Edit3, Clock, ChevronDown } from "lucide-react";
 import { today } from "../../utils/dates";
 
 const formatDate = (dateStr) => {
@@ -43,6 +43,7 @@ export function StockTable({
   onPage = () => {},
   groupByItem = false,
   readOnly = false,
+  isMobile = false,
   
   // Actions required if not read-only
   setPrintModalItem = () => {},
@@ -65,6 +66,9 @@ export function StockTable({
   setEditNotes = () => {}
 }) {
   const [expandedItems, setExpandedItems] = useState({});
+  const [expandedCards, setExpandedCards] = useState({});
+
+  const toggleCard = (id) => setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
 
   const toggleExpandItem = (name) => {
     setExpandedItems(prev => ({ ...prev, [name]: !prev[name] }));
@@ -309,6 +313,105 @@ export function StockTable({
               </tbody>
             </table>
             </div>
+          </div>
+          <Pagination page={page} total={total} limit={limit} onPage={onPage} />
+        </div>
+      ) : isMobile ? (
+        /* ─── MOBILE FLAT VIEW: Item Cards ─────────────── */
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div style={{ overflowY: "auto", flex: 1, minHeight: 0, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {items.map((item) => {
+              const pct = item.qty > 0 ? (item.remaining / item.qty) * 100 : 0;
+              const isLow = item.min_alert_qty !== null ? item.remaining <= item.min_alert_qty : pct < 25;
+              const color = pct > 50 ? COLORS.success : pct > 20 ? COLORS.accent : COLORS.danger;
+              const isExp = expandedCards[item.id];
+              const todayVal = new Date(today());
+              const isExpired = item.expiry_date && new Date(item.expiry_date) < todayVal;
+              const avatar = getInitialsAvatar(item.name);
+
+              return (
+                <div
+                  key={item.id}
+                  className={`mob-item-card${isLow ? " low-stock" : ""}`}
+                  onClick={() => toggleCard(item.id)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {/* Card Header */}
+                  <div className="mob-item-card-header">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: "50%",
+                        background: avatar.bg, color: avatar.fg,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 13, fontWeight: 700, flexShrink: 0
+                      }}>
+                        {avatar.text}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: 9, color: COLORS.accent, display: "block", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 1 }}>{item.item_code}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</span>
+                        {isLow && (
+                          <span style={{ color: COLORS.danger, fontSize: 10, display: "flex", alignItems: "center", gap: 3, marginTop: 2, fontWeight: 700 }}>
+                            <AlertCircle size={10} /> LOW STOCK
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: 15, fontWeight: 700, color }}>{parseFloat(item.remaining).toFixed(1)}</span>
+                        <span style={{ fontSize: 11, color: COLORS.muted }}> {item.unit}</span>
+                      </div>
+                      <ChevronDown size={16} style={{ color: COLORS.muted, transition: "transform 0.2s", transform: isExp ? "rotate(180deg)" : "rotate(0deg)" }} />
+                    </div>
+                  </div>
+
+                  {/* Progress bar always visible */}
+                  <div style={{ height: 5, background: COLORS.border, borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 3, transition: "width 0.3s" }} />
+                  </div>
+
+                  {/* Expanded detail */}
+                  {isExp && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, paddingTop: 4, borderTop: `1px solid ${COLORS.border}`, marginTop: 2 }} onClick={e => e.stopPropagation()}>
+                      <div>
+                        <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, marginBottom: 2 }}>SUPPLIER</p>
+                        <p style={{ fontSize: 13, color: COLORS.text }}>{item.supplier || "—"}</p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, marginBottom: 2 }}>UNIT COST</p>
+                        <p style={{ fontSize: 13, color: COLORS.text }}>{item.price ? `₹${parseFloat(item.price).toFixed(2)}` : "—"}</p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, marginBottom: 2 }}>BATCH</p>
+                        <p style={{ fontSize: 13, color: COLORS.text, fontFamily: "monospace" }}>{item.batch_no || "—"}</p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, marginBottom: 2 }}>EXPIRY</p>
+                        {item.expiry_date ? (
+                          <span className="status-badge" style={{
+                            background: isExpired ? "var(--color-accent-red-light)" : "var(--color-accent-green-light)",
+                            color: isExpired ? "var(--color-accent-red)" : "var(--color-accent-green)",
+                            fontSize: 11, padding: "2px 6px"
+                          }}>
+                            {isExpired ? <AlertCircle size={10} /> : <CheckCircle size={10} />}
+                            {item.expiry_date}
+                          </span>
+                        ) : <span style={{ fontSize: 13, color: COLORS.muted }}>—</span>}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, marginBottom: 2 }}>DATE RECEIVED</p>
+                        <p style={{ fontSize: 13, color: COLORS.text }}>{formatDate(item.date)}</p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, marginBottom: 2 }}>ORIG QTY</p>
+                        <p style={{ fontSize: 13, color: COLORS.text }}>{item.qty} {item.unit}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <Pagination page={page} total={total} limit={limit} onPage={onPage} />
         </div>

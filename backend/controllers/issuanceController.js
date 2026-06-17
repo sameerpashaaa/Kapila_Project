@@ -104,9 +104,29 @@ async function create(req, res, next) {
         }
       }
 
-      // Mark linked indent as issued
+      // Update linked indent logic for partial issuances
       if (indent_id) {
-        await trx("indents").where("id", indent_id).update({ status: "issued" });
+        for (const it of items) {
+          const issuedQty = parseFloat(it.issued);
+          if (issuedQty > 0) {
+            const indentItem = await trx("indent_items")
+              .where({ indent_id, name: it.name })
+              .first();
+            if (indentItem) {
+              const remainingQty = parseFloat(indentItem.qty) - issuedQty;
+              if (remainingQty <= 0) {
+                await trx("indent_items").where("id", indentItem.id).delete();
+              } else {
+                await trx("indent_items").where("id", indentItem.id).update({ qty: remainingQty });
+              }
+            }
+          }
+        }
+
+        const remainingItems = await trx("indent_items").where("indent_id", indent_id);
+        if (remainingItems.length === 0) {
+          await trx("indents").where("id", indent_id).update({ status: "issued" });
+        }
       }
 
       return { ...iss, items: savedItems };
@@ -161,6 +181,29 @@ async function remove(req, res, next) {
       // Revert indent if linked
       if (iss.indent_id) {
         await trx("indents").where("id", iss.indent_id).update({ status: "pending" });
+
+        for (const it of items) {
+          const toRevert = parseFloat(it.issued);
+          if (toRevert <= 0) continue;
+
+          const existingIndentItem = await trx("indent_items")
+            .where({ indent_id: iss.indent_id, name: it.name })
+            .first();
+
+          if (existingIndentItem) {
+            await trx("indent_items")
+              .where("id", existingIndentItem.id)
+              .update({ qty: parseFloat(existingIndentItem.qty) + toRevert });
+          } else {
+            await trx("indent_items").insert({
+              indent_id: iss.indent_id,
+              name: it.name,
+              qty: toRevert,
+              unit: it.unit,
+              item_code: it.item_code
+            });
+          }
+        }
       }
 
       await trx("issuance_items").where("issuance_id", iss.id).delete();
