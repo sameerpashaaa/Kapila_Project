@@ -107,7 +107,7 @@ export default function ReconciliationScreen() {
 
           {msg && <p style={{ color: msg.color, fontSize: 12, margin: "10px 20px" }}>{msg.text}</p>}
 
-          <div style={{ overflowX: "auto" }}>
+          <div className="resp-table-wrap">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>

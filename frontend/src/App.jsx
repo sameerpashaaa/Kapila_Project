@@ -16,7 +16,6 @@ import StockScreen    from "./screens/Stock";
 import IndentScreen   from "./screens/Indent";
 import IssuanceScreen from "./screens/Issuance";
 import ProductionScreen from "./screens/Production";
-import LeftoverScreen from "./screens/Leftovers";
 import SuppliersScreen      from "./screens/Suppliers";
 import DepartmentsScreen    from "./screens/Departments";
 import PurchaseOrdersScreen  from "./screens/PurchaseOrders";
@@ -24,7 +23,6 @@ import GoodsReceiptScreen    from "./screens/GoodsReceipt";
 import ReconciliationScreen  from "./screens/Reconciliation";
 import TransfersScreen       from "./screens/Transfers";
 import ReorderPointsScreen   from "./screens/ReorderPoints";
-import WasteAnalyticsScreen   from "./screens/WasteAnalytics";
 import ChefStatsScreen        from "./screens/ChefStats";
 import UserManagementScreen from "./screens/UserManagement";
 import AuditLogsScreen from "./screens/AuditLogs";
@@ -46,23 +44,13 @@ const NAV_CATEGORIES = [
     title: "Master Data",
     items: [
       { id: "stock",        label: "Stock Master",    permission: "stock.view", icon: <Package size={16} /> },
-      { id: "suppliers",    label: "Suppliers Master", permission: "suppliers.view", icon: <Factory size={16} /> },
-      { id: "departments",  label: "Departments",     permission: "departments.view", icon: <Building2 size={16} /> },
     ]
   },
   {
     title: "Procurement",
     items: [
       { id: "pos",          label: "Purchase Orders", permission: "purchase_orders.view", icon: <Receipt size={16} /> },
-      { id: "grn",          label: "Goods Receipt",   permission: "grn.view", icon: <Inbox size={16} /> },
       { id: "reorder",      label: "Reorder Points",  permission: "reorder_points.view", icon: <Bell size={16} /> },
-    ]
-  },
-  {
-    title: "Store Management",
-    items: [
-      { id: "reconcile",    label: "Reconciliation",  permission: "reconciliation.view", icon: <Scale size={16} /> },
-      { id: "transfers",    label: "Transfers",       permission: "transfers.view", icon: <ArrowLeftRight size={16} /> },
     ]
   },
   {
@@ -71,17 +59,17 @@ const NAV_CATEGORIES = [
       { id: "production_planner", label: "Production Planner", permission: "recipes.view", icon: <CalendarCheck size={16} /> },
       { id: "indent",       label: "Indent Material", permission: "indents.view", icon: <ClipboardList size={16} /> },
       { id: "issuance",     label: "Store Issuance",  permission: "issuances.view", icon: <Send size={16} /> },
-      { id: "production",   label: "Daily Production",permission: "production.view", icon: <ChefHat size={16} /> },
-      { id: "leftover",     label: "Leftovers Logs",  permission: "leftovers.view", icon: <ArchiveRestore size={16} /> },
-      { id: "waste_analytics", label: "Waste Analytics", permission: "waste_analytics.view", icon: <Trash2 size={16} /> },
+      { id: "production",   label: "Daily Production & Waste", permission: ["production.view", "leftovers.view", "waste_analytics.view"], icon: <ChefHat size={16} /> },
       { id: "chef_stats",    label: "Chef Statistics",  permission: "chef_stats.view", icon: <BarChart3 size={16} /> },
     ]
   },
   {
     title: "Administration",
     items: [
-      { id: "users", label: "User Management", permission: "users.view", icon: <Users size={16} /> },
-      { id: "audit_logs", label: "Audit Logs", permission: "audit_logs.view", icon: <ShieldCheck size={16} /> },
+      { id: "suppliers",    label: "Suppliers Master", permission: "suppliers.view", icon: <Factory size={16} /> },
+      { id: "departments",  label: "Departments",     permission: "departments.view", icon: <Building2 size={16} /> },
+      { id: "users",        label: "User Management", permission: "users.view", icon: <Users size={16} /> },
+      { id: "audit_logs",   label: "Audit Logs",      permission: "audit_logs.view", icon: <ShieldCheck size={16} /> },
     ]
   }
 ];
@@ -94,7 +82,7 @@ const SIDEBAR_WIDTH = 230;
 
 function Inner() {
   const { currentScreen: screen, setCurrentScreen: setScreen, refreshStockNames, stocks = [] } = useAppContext();
-  const { user, roles, loading, isAuthenticated, hasPermission, logout } = useAuth();
+  const { user, roles, loading, isAuthenticated, hasPermission, hasAnyPermission, logout } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -103,8 +91,15 @@ function Inner() {
     return item.min_alert_qty !== null ? item.remaining <= item.min_alert_qty : pct < 25;
   }).length;
 
+  const itemHasPermission = (item) => {
+    if (Array.isArray(item.permission)) {
+      return hasAnyPermission(item.permission);
+    }
+    return hasPermission(item.permission);
+  };
+
   const visibleNavCategories = NAV_CATEGORIES
-    .map((cat) => ({ ...cat, items: cat.items.filter((item) => hasPermission(item.permission)) }))
+    .map((cat) => ({ ...cat, items: cat.items.filter(itemHasPermission) }))
     .filter((cat) => cat.items.length > 0);
   const visibleNavItems = visibleNavCategories.flatMap((cat) => cat.items);
 
@@ -149,10 +144,12 @@ function Inner() {
     transfers:  <ProtectedScreen permission="transfers.view"><TransfersScreen /></ProtectedScreen>,
     indent:     <ProtectedScreen permission="indents.view"><IndentScreen /></ProtectedScreen>,
     issuance:   <ProtectedScreen permission="issuances.view"><IssuanceScreen /></ProtectedScreen>,
-    production: <ProtectedScreen permission="production.view"><ProductionScreen /></ProtectedScreen>,
-    leftover:   <ProtectedScreen permission="leftovers.view"><LeftoverScreen /></ProtectedScreen>,
+    production: (
+      <ProtectedScreen permission={["production.view", "leftovers.view", "waste_analytics.view"]}>
+        <ProductionScreen />
+      </ProtectedScreen>
+    ),
     production_planner: <ProtectedScreen permission="recipes.view"><ProductionPlannerScreen /></ProtectedScreen>,
-    waste_analytics: <ProtectedScreen permission="waste_analytics.view"><WasteAnalyticsScreen /></ProtectedScreen>,
     chef_stats: <ProtectedScreen permission="chef_stats.view"><ChefStatsScreen /></ProtectedScreen>,
     users: <ProtectedScreen permission="users.view"><UserManagementScreen /></ProtectedScreen>,
     audit_logs: <ProtectedScreen permission="audit_logs.view"><AuditLogsScreen /></ProtectedScreen>,
@@ -357,7 +354,7 @@ function Inner() {
             <header style={{
               height: 52,
               display: "flex", alignItems: "center",
-              padding: "0 24px",
+              padding: isMobile ? "0 16px" : "0 24px",
               background: COLORS.surface,
               borderBottom: `1px solid ${COLORS.border}`,
               gap: 12,
@@ -398,7 +395,7 @@ function Inner() {
           <main style={{
             flex: 1,
             overflowY: "auto",
-            padding: isStoreManagerRoute ? 0 : "20px 24px",
+            padding: isStoreManagerRoute ? 0 : (isMobile ? "12px 16px" : "20px 24px"),
             backgroundColor: COLORS.bg
           }}>
             {screens[screen]}

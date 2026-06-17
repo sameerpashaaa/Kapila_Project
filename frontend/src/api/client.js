@@ -1,6 +1,6 @@
 import { clearAccessToken, getAccessToken, notifyUnauthorized, setAccessToken } from "./authToken";
 
-const BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const BASE = import.meta.env.VITE_API_URL || "/api";
 
 function absoluteUrl(path) {
   const absoluteBase = BASE.startsWith("http") ? BASE : window.location.origin + BASE;

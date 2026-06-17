@@ -14,7 +14,7 @@ const MODULE_CARDS = [
   {
     id: 'store_manager_stock_purchase',
     icon: '🛒',
-    title: 'Stock Purchase',
+    title: 'Purchase Order',
     description: 'Record new stock purchases, scan receipts, and update supplier information.',
     accentColor: '#10B981', // green
     bgAccent: '#ECFDF5',
@@ -32,14 +32,7 @@ const MODULE_CARDS = [
 export default function StoreManagerHome() {
   const { user, logout } = useAuth();
   const { setCurrentScreen } = useAppContext();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [hoveredCard, setHoveredCard] = useState(null);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -126,10 +119,7 @@ export default function StoreManagerHome() {
         </div>
 
         {/* Module Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-          gap: '24px',
+        <div className="resp-grid-3" style={{
           width: '100%',
           maxWidth: '900px',
         }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Card from "../../components/Card";
 import Btn from "../../components/Btn";
 import Input from "../../components/Input";
@@ -8,10 +8,11 @@ import { COLORS, UNITS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import { useAppContext } from "../../context/AppContext";
 import * as api from "../../api";
-import { Plus, ArrowLeft, FileText, Truck, CheckCircle, XCircle, Clock, ChevronRight } from "lucide-react";
+import { Plus, ArrowLeft, FileText, Truck, CheckCircle, XCircle, Clock, ChevronRight, Mic, FileImage, Loader } from "lucide-react";
 
 const LIMIT = 20;
 import { today } from "../../utils/dates";
+import { useLocalSpeech } from "../../hooks/useLocalSpeech";
 
 const STATUS_CONFIG = {
   Draft:     { bg: "#f1f5f9", text: "#64748b", icon: <Clock size={11} />, dot: "#94a3b8" },
@@ -37,6 +38,14 @@ export default function PurchaseOrdersScreen() {
   const [lineItems, setLineItems] = useState([{ ...emptyItem }]);
   const [submitting, setSubmitting] = useState(false);
 
+  const fileInputRef = useRef();
+  const [scanningBill, setScanningBill] = useState(false);
+  const [showVoicePanel, setShowVoicePanel] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [listenLang, setListenLang] = useState("en-IN");
+
+  const { listening, interimText, startRecording, stopRecording } = useLocalSpeech(listenLang);
+
   const { items, total, page, loading, error, fetch } = usePaginatedApi(api.purchaseOrders.list);
 
   const load = (overrides = {}) =>
@@ -53,6 +62,113 @@ export default function PurchaseOrdersScreen() {
   const flash = (text, color = COLORS.success) => {
     setMsg({ text, color });
     setTimeout(() => setMsg(""), 3000);
+  };
+
+  const handleScanBill = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setScanningBill(true);
+    flash("Scanning bill with AI...", COLORS.brand);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+      try {
+        const res = await api.scan.purchase(base64, file.type);
+        if (res.success && res.data) {
+          const parsed = res.data;
+          // Match supplier
+          if (parsed.supplier) {
+            const matched = supplierList.find(s => s.name?.toLowerCase().includes(parsed.supplier.toLowerCase()) || parsed.supplier.toLowerCase().includes(s.name?.toLowerCase()));
+            if (matched) {
+              setForm(f => ({ ...f, supplier_id: matched.id.toString() }));
+              flash(`Bill scanned! Selected supplier: ${matched.name} ✓`);
+            } else {
+              flash(`Bill scanned! Supplier "${parsed.supplier}" not found in registered suppliers.`, COLORS.warning);
+            }
+          } else {
+            flash("Bill scanned successfully ✓");
+          }
+
+          if (parsed.items && parsed.items.length) {
+            const imported = parsed.items.map(it => {
+              const match = stocks.find(s => s.name?.toLowerCase() === it.name?.toLowerCase());
+              return {
+                item_code: it.item_code || match?.item_code || "",
+                name: it.name || "",
+                qty: it.qty?.toString() || "1",
+                unit: it.unit || match?.unit || "kg",
+                unit_price: it.price?.toString() || match?.price?.toString() || ""
+              };
+            });
+            setLineItems(imported);
+          }
+        } else {
+          flash("Failed to parse bill contents.", COLORS.coral);
+        }
+      } catch (err) {
+        flash("Scan error: " + err.message, COLORS.coral);
+      } finally {
+        setScanningBill(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const startListening = () => {
+    if (listening) {
+      stopRecording((status) => flash(status));
+    } else {
+      startRecording(
+        (text) => {
+          setImportText((prev) => (prev.trim() ? prev.trim() + "\n" + text : text));
+          flash("Transcription complete ✓");
+        },
+        (status) => flash(status)
+      );
+    }
+  };
+
+  const parseImportText = async () => {
+    if (!importText.trim()) return;
+    flash("Parsing text list with AI...", COLORS.brand);
+    try {
+      const res = await api.scan.text(importText);
+      if (res.success && res.data) {
+         const parsed = res.data;
+         // Match supplier
+         if (parsed.supplier) {
+           const matched = supplierList.find(s => s.name?.toLowerCase().includes(parsed.supplier.toLowerCase()) || parsed.supplier.toLowerCase().includes(s.name?.toLowerCase()));
+           if (matched) {
+             setForm(f => ({ ...f, supplier_id: matched.id.toString() }));
+           } else {
+             flash(`Supplier "${parsed.supplier}" not found.`, COLORS.warning);
+           }
+         }
+         if (parsed.items && parsed.items.length) {
+           const imported = parsed.items.map(it => {
+             const match = stocks.find(s => s.name?.toLowerCase() === it.name?.toLowerCase());
+             return {
+               item_code: it.item_code || match?.item_code || "",
+               name: it.name || "",
+               qty: it.qty?.toString() || "1",
+               unit: it.unit || match?.unit || "kg",
+               unit_price: it.price?.toString() || match?.price?.toString() || ""
+             };
+           });
+           setLineItems(imported);
+           flash("Items imported successfully ✓");
+           setShowVoicePanel(false);
+           setImportText("");
+         } else {
+           flash("No items could be extracted.", COLORS.coral);
+         }
+      } else {
+        flash("Failed to parse text.", COLORS.coral);
+      }
+    } catch (err) {
+      flash("Parse error: " + err.message, COLORS.coral);
+    }
   };
 
   // ── Line item helpers ──────────────────────────────────
@@ -142,6 +258,61 @@ export default function PurchaseOrdersScreen() {
       setView("list");
       load({ page: 1 });
     } catch (e) { flash(e.message, COLORS.coral); }
+  };
+
+  const lowStockItems = stocks.filter((item) => {
+    const pct = item.qty > 0 ? (item.remaining / item.qty) * 100 : 0;
+    return item.min_alert_qty !== null ? item.remaining <= item.min_alert_qty : pct < 25;
+  });
+
+  const expiringSoonItems = stocks.filter((item) => {
+    if (!item.expiry_date || item.remaining <= 0) return false;
+    const todayVal = new Date(today());
+    const expiryVal = new Date(item.expiry_date);
+    const diffTime = expiryVal - todayVal;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 3;
+  });
+
+  const handleReorderClick = (item) => {
+    const needed = item.min_alert_qty ? (item.min_alert_qty * 2) : 10;
+    const newItem = {
+      item_code: item.item_code,
+      name: item.name,
+      qty: needed,
+      unit: item.unit || UNITS[0],
+      unit_price: item.price || ""
+    };
+    setLineItems((prev) => {
+      if (prev.length === 1 && !prev[0].name && !prev[0].qty) {
+        return [newItem];
+      }
+      return [...prev, newItem];
+    });
+    flash(`Added ${item.name} to PO items ✓`);
+  };
+
+  const generateWhatsAppPO = () => {
+    if (lowStockItems.length === 0) return;
+    const header = "*KAPILA INVENTORY - PURCHASE ORDER*\n\nGenerated: " + today() + "\n\n";
+    const itemsText = lowStockItems.map((item, idx) => {
+      const needed = item.min_alert_qty ? (item.min_alert_qty * 2) : 10;
+      return `${idx + 1}. *${item.name}* - Needs approx. ${needed} ${item.unit} (Current: ${parseFloat(item.remaining).toFixed(1)} ${item.unit})`;
+    }).join("\n");
+    const footer = "\n\nPlease check pricing and confirm delivery date.";
+    window.open(`https://wa.me/?text=${encodeURIComponent(header + itemsText + footer)}`, "_blank");
+  };
+
+  const copyPOToClipboard = () => {
+    if (lowStockItems.length === 0) return;
+    const header = "*KAPILA INVENTORY - PURCHASE ORDER*\n\nGenerated: " + today() + "\n\n";
+    const itemsText = lowStockItems.map((item, idx) => {
+      const needed = item.min_alert_qty ? (item.min_alert_qty * 2) : 10;
+      return `${idx + 1}. *${item.name}* - Needs approx. ${needed} ${item.unit} (Current: ${parseFloat(item.remaining).toFixed(1)} ${item.unit})`;
+    }).join("\n");
+    const footer = "\n\nPlease check pricing and confirm delivery date.";
+    navigator.clipboard.writeText(header + itemsText + footer);
+    flash("PO copied to clipboard ✓");
   };
 
   // ── Status badge ───────────────────────────────────────
@@ -253,312 +424,447 @@ export default function PurchaseOrdersScreen() {
     );
   }
 
-  // ── CREATE VIEW ────────────────────────────────────────
-  if (view === "create") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        {/* Create Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexShrink: 0 }}>
-          <button
-            onClick={() => setView("list")}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: "none", border: `1px solid ${COLORS.border}`,
-              color: COLORS.muted, padding: "6px 12px", borderRadius: 8,
-              fontSize: 13, cursor: "pointer"
-            }}
-          >
-            <ArrowLeft size={14} /> Back
-          </button>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: COLORS.text }}>New Purchase Order</h1>
-            <p style={{ fontSize: 12, color: COLORS.muted }}>Draft a PO for a supplier</p>
-          </div>
-        </div>
-
-        {msg && <p style={{ color: msg.color, fontSize: 12, marginBottom: 12, flexShrink: 0 }}>{msg.text}</p>}
-
-        <Card style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 24px" }}>
-          {/* Header fields */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
-            <div>
-              <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.07em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-                Supplier *
-              </label>
-              <select
-                value={form.supplier_id}
-                onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}
-                style={{ width: "100%", padding: "9px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13 }}
-              >
-                <option value="">— Select Supplier —</option>
-                {supplierList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.07em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-                PO Date *
-              </label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                style={{ width: "100%", padding: "9px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13 }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.07em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-                Notes
-              </label>
-              <input
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                placeholder="Optional instructions..."
-                style={{ width: "100%", padding: "9px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13 }}
-              />
-            </div>
-          </div>
-
-          {/* Line Items */}
-          <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10, fontWeight: 600 }}>
-            Order Items
-          </p>
-          <div style={{ background: COLORS.bg, borderRadius: 10, border: `1px solid ${COLORS.border}`, overflow: "hidden", marginBottom: 12 }}>
-            <table style={{ fontSize: 13 }}>
-              <thead>
-                <tr>
-                  {["Item Name", "Item Code", "Qty", "Unit", "Unit Price (₹)", "Total", ""].map((h) => (
-                    <th key={h} style={{ background: "#f1f5f9", padding: "9px 12px" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((it, idx) => (
-                  <tr key={idx}>
-                    <td style={{ padding: "6px 10px" }}>
-                      <input
-                        list="stock-names"
-                        value={it.name}
-                        onChange={(e) => updateLine(idx, "name", e.target.value)}
-                        placeholder="Item name"
-                        style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 180 }}
-                      />
-                    </td>
-                    <td style={{ padding: "6px 10px" }}>
-                      <input
-                        value={it.item_code}
-                        onChange={(e) => updateLine(idx, "item_code", e.target.value)}
-                        placeholder="KPL-###"
-                        style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.brand, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 90, fontFamily: "monospace" }}
-                      />
-                    </td>
-                    <td style={{ padding: "6px 10px" }}>
-                      <input type="number" min="0.01" step="any" value={it.qty}
-                        onChange={(e) => updateLine(idx, "qty", e.target.value)}
-                        style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 80 }}
-                      />
-                    </td>
-                    <td style={{ padding: "6px 10px" }}>
-                      <select value={it.unit} onChange={(e) => updateLine(idx, "unit", e.target.value)}
-                        style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 8px", fontSize: 12, width: 70 }}>
-                        {UNITS.map((u) => <option key={u}>{u}</option>)}
-                      </select>
-                    </td>
-                    <td style={{ padding: "6px 10px" }}>
-                      <input type="number" min="0" step="any" value={it.unit_price}
-                        onChange={(e) => updateLine(idx, "unit_price", e.target.value)}
-                        style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 100 }}
-                      />
-                    </td>
-                    <td style={{ padding: "6px 10px", color: COLORS.accent, fontWeight: 600, whiteSpace: "nowrap" }}>
-                      ₹{lineTotal(it)}
-                    </td>
-                    <td style={{ padding: "6px 10px" }}>
-                      {lineItems.length > 1 && (
-                        <button
-                          onClick={() => removeLine(idx)}
-                          style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 16, padding: "0 4px" }}
-                        >×</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <datalist id="stock-names">
-            {stocks.map((s) => <option key={s.id} value={s.name} />)}
-          </datalist>
-
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <button
-              onClick={addLine}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: "none", border: `1px dashed ${COLORS.border}`,
-                color: COLORS.muted, padding: "7px 14px", borderRadius: 8, fontSize: 13, cursor: "pointer"
-              }}
-            >
-              <Plus size={14} /> Add Item
-            </button>
-            <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 2 }}>GRAND TOTAL</p>
-              <p style={{ fontWeight: 700, color: COLORS.accent, fontSize: 22, letterSpacing: "-0.02em" }}>
-                ₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, paddingTop: 16, borderTop: `1px solid ${COLORS.border}` }}>
-            <Btn onClick={submit} loading={submitting} style={{ flex: 1 }}>Create Purchase Order</Btn>
-            <Btn variant="ghost" onClick={autoDraft}>Auto-Draft (Low Stock)</Btn>
-            <Btn variant="ghost" onClick={() => setView("list")}>Cancel</Btn>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // ── LIST VIEW ──────────────────────────────────────────
+  // ── DEFAULT VIEW (Combined Create & List) ──────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* List Header */}
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 20, overflowY: "auto", paddingRight: 4 }}>
+      {/* Page Header */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: 16, flexShrink: 0, flexWrap: "wrap", gap: 12
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexShrink: 0
       }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: COLORS.text, letterSpacing: "-0.02em" }}>Purchase Orders</h1>
           <p style={{ fontSize: 13, color: COLORS.muted, marginTop: 2 }}>Track POs from draft to delivery</p>
         </div>
-        <Btn onClick={() => setView("create")}>
-          <Plus size={15} /> New PO
-        </Btn>
       </div>
 
-      {/* Filters Bar */}
-      <div style={{
-        display: "flex", gap: 10, marginBottom: 14, alignItems: "center",
-        flexWrap: "wrap", flexShrink: 0
-      }}>
-        <input
-          value={filters.q}
-          onChange={(e) => { setFilters((f) => ({ ...f, q: e.target.value })); load({ page: 1, q: e.target.value }); }}
-          placeholder="Search PO# or supplier…"
-          style={{
-            flex: 1, minWidth: 200, padding: "8px 12px",
-            border: `1px solid ${COLORS.border}`, borderRadius: 8,
-            fontSize: 13, background: "#fff", color: COLORS.text
-          }}
-        />
-        {/* Status pills */}
-        <div style={{ display: "flex", gap: 6 }}>
-          {["", "Draft", "Sent", "Received", "Cancelled"].map((s) => {
-            const isActive = filters.status === s;
-            const sc = s ? STATUS_CONFIG[s] : null;
-            return (
-              <button
-                key={s}
-                onClick={() => { setFilters((f) => ({ ...f, status: s })); load({ page: 1, status: s }); }}
-                style={{
-                  padding: "6px 14px", fontSize: 12, fontWeight: 600,
-                  borderRadius: 20, border: `1px solid ${isActive ? (sc?.dot || COLORS.brand) : COLORS.border}`,
-                  background: isActive ? (sc?.bg || COLORS.brand + "15") : "transparent",
-                  color: isActive ? (sc?.text || COLORS.brand) : COLORS.muted,
-                  cursor: "pointer", transition: "all 0.15s"
-                }}
-              >
-                {s || "All"}
-              </button>
-            );
-          })}
+      <style>{`
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+      `}</style>
+
+      {/* New PO Form (covers full width) */}
+      <Card style={{ padding: "20px 24px", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600, color: COLORS.text }}>
+            New Purchase Order
+          </h3>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn variant="ghost" small onClick={() => setShowVoicePanel(!showVoicePanel)} icon={<Mic size={14} />} style={{ fontSize: 11, padding: "5px 10px" }}>
+              {showVoicePanel ? "Standard" : "Voice Dictate"}
+            </Btn>
+            <Btn variant="ghost" small onClick={() => fileInputRef.current.click()} icon={scanningBill ? <Loader size={14} className="spin" /> : <FileImage size={14} />} style={{ fontSize: 11, padding: "5px 10px" }} disabled={scanningBill}>
+              {scanningBill ? "Scanning…" : "Scan Clip"}
+            </Btn>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleScanBill} />
+          </div>
         </div>
-        <select
-          value={filters.supplier_id}
-          onChange={(e) => { setFilters((f) => ({ ...f, supplier_id: e.target.value })); load({ page: 1, supplier_id: e.target.value }); }}
-          style={{ padding: "8px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13, minWidth: 140 }}
-        >
-          <option value="">All Suppliers</option>
-          {supplierList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      </div>
 
-      {msg && <p style={{ color: msg.color, fontSize: 12, marginBottom: 10 }}>{msg.text}</p>}
+        {/* Voice dictation panel */}
+        {showVoicePanel && (
+          <div style={{
+            background: "#f8fafc",
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 8,
+            padding: "16px 20px",
+            marginBottom: 20
+          }}>
+            <p style={{ fontSize: 13, color: COLORS.accent, fontWeight: 600, margin: "0 0 4px 0", display: "flex", alignItems: "center", gap: 6 }}>
+              <Mic size={14} /> Quick Dictate / Text Import
+            </p>
+            <p style={{ fontSize: 11, color: COLORS.muted, margin: "0 0 12px 0" }}>
+              Type, paste item lists, or use voice dictation in Telugu, Hindi, English, and other local languages.
+            </p>
 
-      {/* PO Table */}
-      <Card style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column" }}>
-        {loading ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, color: COLORS.muted, fontSize: 13 }}>
-            Loading orders…
-          </div>
-        ) : error ? (
-          <ErrorMsg error={error} />
-        ) : items.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 12 }}>
-            <div style={{ fontSize: 40 }}>📋</div>
-            <p style={{ color: COLORS.muted, fontSize: 14, fontWeight: 500 }}>No purchase orders yet</p>
-            <Btn onClick={() => setView("create")}><Plus size={14} /> Create your first PO</Btn>
-          </div>
-        ) : (
-          <>
-            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-              <table>
-                <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
-                  <tr>
-                    <th>PO Number</th>
-                    <th>Supplier</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Total</th>
-                    <th>Items</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((po) => {
-                    const sc = STATUS_CONFIG[po.status] || STATUS_CONFIG.Draft;
-                    return (
-                      <tr
-                        key={po.id}
-                        onClick={() => openDetail(po.id)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <td>
-                          <span style={{ fontFamily: "monospace", color: COLORS.brand, fontWeight: 700, fontSize: 13 }}>
-                            {po.po_number}
-                          </span>
-                        </td>
-                        <td style={{ fontWeight: 500 }}>{po.supplier_name}</td>
-                        <td style={{ color: COLORS.muted }}>{po.date}</td>
-                        <td>
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 5,
-                            background: sc.bg, color: sc.text,
-                            padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600
-                          }}>
-                            {sc.icon} {po.status}
-                          </span>
-                        </td>
-                        <td style={{ fontWeight: 700, color: COLORS.accent }}>
-                          ₹{fmt(po.total_amount)}
-                        </td>
-                        <td style={{ color: COLORS.muted }}>
-                          {po.item_count || "—"}
-                        </td>
-                        <td>
-                          <ChevronRight size={16} color={COLORS.muted} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            {(() => {
+              const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+              if (!isSecure) {
+                return (
+                  <div style={{
+                    background: COLORS.coral + "15",
+                    border: `1px solid ${COLORS.coral}33`,
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 11,
+                    color: COLORS.coral,
+                    marginBottom: 12,
+                    lineHeight: 1.3
+                  }}>
+                    ⚠️ <strong>Security Restriction:</strong> Web Speech recognition requires a secure context. Because this app is accessed over HTTP on a custom IP, your browser has blocked the microphone. Please open <strong>http://localhost:5173</strong> (or setup HTTPS) to enable dictation.
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Dictation Language</label>
+                <select
+                  value={listenLang}
+                  onChange={(e) => setListenLang(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    background: "#fff",
+                    border: `1px solid ${COLORS.border}`,
+                    color: COLORS.text,
+                    borderRadius: 6
+                  }}
+                >
+                  <option value="en-IN">🇺🇸 English (en-IN)</option>
+                  <option value="te-IN">🇮🇳 Telugu / తెలుగు (te-IN)</option>
+                  <option value="hi-IN">🇮🇳 Hindi / हिन्दी (hi-IN)</option>
+                  <option value="ta-IN">🇮🇳 Tamil / தமிழ் (ta-IN)</option>
+                  <option value="kn-IN">🇮🇳 Kannada / ಕನ್ನಡ (kn-IN)</option>
+                  <option value="ml-IN">🇮🇳 Malayalam / മലയാളം (ml-IN)</option>
+                  <option value="mr-IN">🇮🇳 Marathi / मराठी (mr-IN)</option>
+                  <option value="gu-IN">🇮🇳 Gujarati / ગુજરાતી (gu-IN)</option>
+                  <option value="bn-IN">🇮🇳 Bengali / বাংলা (bn-IN)</option>
+                  <option value="pa-IN">🇮🇳 Punjabi / ਪੰਜਾਬੀ (pa-IN)</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button
+                  onClick={startListening}
+                  style={{
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    background: listening ? COLORS.coral : COLORS.bg,
+                    border: `1px solid ${listening ? COLORS.coral : COLORS.border}`,
+                    color: listening ? "#fff" : COLORS.text,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontWeight: 600,
+                    transition: "all 0.2s",
+                    height: "33px"
+                  }}
+                >
+                  {listening ? "🛑 Stop" : "🎤 Speak"}
+                </button>
+              </div>
             </div>
-            <div style={{ borderTop: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
-              <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Pasted Text or Transcribed Voice</label>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="e.g. Rice 50 kg rate 45&#10;Tomatoes 20 kg price 30&#10;Oil 15 liter"
+                rows={4}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  background: "#fff",
+                  border: `1px solid ${COLORS.border}`,
+                  color: COLORS.text,
+                  borderRadius: 6,
+                  fontFamily: "inherit",
+                  resize: "vertical"
+                }}
+              />
+              {interimText && (
+                <div style={{ 
+                  fontSize: 12, 
+                  color: COLORS.accent, 
+                  marginTop: 6, 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 6,
+                  padding: "6px 10px",
+                  background: COLORS.accent + "11",
+                  border: `1px dashed ${COLORS.accent}44`,
+                  borderRadius: 4
+                }}>
+                  <span style={{ fontSize: 10 }}>🎙️</span>
+                  <span style={{ fontStyle: "italic" }}>Hearing: "{interimText}"...</span>
+                </div>
+              )}
             </div>
-          </>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn small onClick={parseImportText} disabled={!importText.trim()} style={{ flex: 1 }}>Parse & Import</Btn>
+              <Btn small variant="ghost" onClick={() => { setShowVoicePanel(false); setImportText(""); }} style={{ border: `1px solid ${COLORS.border}`, flex: 1 }}>Cancel</Btn>
+            </div>
+          </div>
         )}
+        
+        {/* Header fields */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
+          <div>
+            <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.07em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+              Supplier *
+            </label>
+            <select
+              value={form.supplier_id}
+              onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}
+              style={{ width: "100%", padding: "9px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13 }}
+            >
+              <option value="">— Select Supplier —</option>
+              {supplierList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.07em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+              PO Date *
+            </label>
+            <input
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+              style={{ width: "100%", padding: "9px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: COLORS.muted, letterSpacing: "0.07em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+              Notes
+            </label>
+            <input
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder="Optional instructions..."
+              style={{ width: "100%", padding: "9px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+        </div>
+
+        {/* Line Items */}
+        <p style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10, fontWeight: 600 }}>
+          Order Items
+        </p>
+        <div style={{ background: COLORS.bg, borderRadius: 10, border: `1px solid ${COLORS.border}`, overflow: "hidden", marginBottom: 12 }}>
+          <table style={{ fontSize: 13 }}>
+            <thead>
+              <tr>
+                {["Item Name", "Item Code", "Qty", "Unit", "Unit Price (₹)", "Total", ""].map((h) => (
+                  <th key={h} style={{ background: "#f1f5f9", padding: "9px 12px" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lineItems.map((it, idx) => (
+                <tr key={idx}>
+                  <td style={{ padding: "6px 10px" }}>
+                    <input
+                      list="stock-names"
+                      value={it.name}
+                      onChange={(e) => updateLine(idx, "name", e.target.value)}
+                      placeholder="Item name"
+                      style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: "100%", minWidth: 150 }}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 10px" }}>
+                    <input
+                      value={it.item_code}
+                      onChange={(e) => updateLine(idx, "item_code", e.target.value)}
+                      placeholder="KPL-###"
+                      style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.brand, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 90, fontFamily: "monospace" }}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 10px" }}>
+                    <input type="number" min="0.01" step="any" value={it.qty}
+                      onChange={(e) => updateLine(idx, "qty", e.target.value)}
+                      style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 70 }}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 10px" }}>
+                    <select value={it.unit} onChange={(e) => updateLine(idx, "unit", e.target.value)}
+                      style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 8px", fontSize: 12, width: 70 }}>
+                      {UNITS.map((u) => <option key={u}>{u}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: "6px 10px" }}>
+                    <input type="number" min="0" step="any" value={it.unit_price}
+                      onChange={(e) => updateLine(idx, "unit_price", e.target.value)}
+                      style={{ background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: "6px 10px", fontSize: 12, width: 90 }}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 10px", color: COLORS.accent, fontWeight: 600, whiteSpace: "nowrap" }}>
+                    ₹{lineTotal(it)}
+                  </td>
+                  <td style={{ padding: "6px 10px" }}>
+                    {lineItems.length > 1 && (
+                      <button
+                        onClick={() => removeLine(idx)}
+                        style={{ background: "none", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 16, padding: "0 4px" }}
+                      >×</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <datalist id="stock-names">
+          {stocks.map((s) => <option key={s.id} value={s.name} />)}
+        </datalist>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <button
+            onClick={addLine}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: "none", border: `1px dashed ${COLORS.border}`,
+              color: COLORS.muted, padding: "7px 14px", borderRadius: 8, fontSize: 13, cursor: "pointer"
+            }}
+          >
+            <Plus size={14} /> Add Item
+          </button>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 2 }}>GRAND TOTAL</p>
+            <p style={{ fontWeight: 700, color: COLORS.accent, fontSize: 22, letterSpacing: "-0.02em" }}>
+              ₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, paddingTop: 16, borderTop: `1px solid ${COLORS.border}` }}>
+          <Btn onClick={submit} loading={submitting} style={{ flex: 1 }}>Create Purchase Order</Btn>
+          <Btn variant="ghost" onClick={autoDraft}>Auto-Draft (Low Stock)</Btn>
+          <Btn variant="ghost" onClick={() => {
+            setForm({ supplier_id: "", date: today(), notes: "" });
+            setLineItems([{ ...emptyItem }]);
+          }}>Clear Form</Btn>
+        </div>
       </Card>
+
+      {/* Recent POs Table */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, flexShrink: 0 }}>
+        <h3 style={{ margin: "10px 0 0", fontSize: "16px", fontWeight: 600, color: COLORS.text }}>
+          Recent Purchase Orders
+        </h3>
+
+        {/* Filters Bar */}
+        <div style={{
+          display: "flex", gap: 10, alignItems: "center",
+          flexWrap: "wrap", flexShrink: 0
+        }}>
+          <input
+            value={filters.q}
+            onChange={(e) => { setFilters((f) => ({ ...f, q: e.target.value })); load({ page: 1, q: e.target.value }); }}
+            placeholder="Search PO# or supplier…"
+            style={{
+              flex: 1, minWidth: 200, padding: "8px 12px",
+              border: `1px solid ${COLORS.border}`, borderRadius: 8,
+              fontSize: 13, background: "#fff", color: COLORS.text
+            }}
+          />
+          {/* Status pills */}
+          <div style={{ display: "flex", gap: 6 }}>
+            {["", "Draft", "Sent", "Received", "Cancelled"].map((s) => {
+              const isActive = filters.status === s;
+              const sc = s ? STATUS_CONFIG[s] : null;
+              return (
+                <button
+                  key={s}
+                  onClick={() => { setFilters((f) => ({ ...f, status: s })); load({ page: 1, status: s }); }}
+                  style={{
+                    padding: "6px 14px", fontSize: 12, fontWeight: 600,
+                    borderRadius: 20, border: `1px solid ${isActive ? (sc?.dot || COLORS.brand) : COLORS.border}`,
+                    background: isActive ? (sc?.bg || COLORS.brand + "15") : "transparent",
+                    color: isActive ? (sc?.text || COLORS.brand) : COLORS.muted,
+                    cursor: "pointer", transition: "all 0.15s"
+                  }}
+                >
+                  {s || "All"}
+                </button>
+              );
+            })}
+          </div>
+          <select
+            value={filters.supplier_id}
+            onChange={(e) => { setFilters((f) => ({ ...f, supplier_id: e.target.value })); load({ page: 1, supplier_id: e.target.value }); }}
+            style={{ padding: "8px 12px", background: "#fff", border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 8, fontSize: 13, minWidth: 140 }}
+          >
+            <option value="">All Suppliers</option>
+            {supplierList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+
+        {msg && msg.text && <p style={{ color: msg.color, fontSize: 12 }}>{msg.text}</p>}
+
+        {/* PO Table */}
+        <Card style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          {loading ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: COLORS.muted, fontSize: 13 }}>
+              Loading orders…
+            </div>
+          ) : error ? (
+            <ErrorMsg error={error} />
+          ) : items.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 200, gap: 12 }}>
+              <div style={{ fontSize: 40 }}>📋</div>
+              <p style={{ color: COLORS.muted, fontSize: 14, fontWeight: 500 }}>No purchase orders yet</p>
+            </div>
+          ) : (
+            <>
+              <div className="resp-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>PO Number</th>
+                      <th>Supplier</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Total</th>
+                      <th>Items</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((po) => {
+                      const sc = STATUS_CONFIG[po.status] || STATUS_CONFIG.Draft;
+                      return (
+                        <tr
+                          key={po.id}
+                          onClick={() => openDetail(po.id)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td>
+                            <span style={{ fontFamily: "monospace", color: COLORS.brand, fontWeight: 700, fontSize: 13 }}>
+                              {po.po_number}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 500 }}>{po.supplier_name}</td>
+                          <td style={{ color: COLORS.muted }}>{po.date}</td>
+                          <td>
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 5,
+                              background: sc.bg, color: sc.text,
+                              padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600
+                            }}>
+                              {sc.icon} {po.status}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 700, color: COLORS.accent }}>
+                            ₹{fmt(po.total_amount)}
+                          </td>
+                          <td style={{ color: COLORS.muted }}>
+                            {po.item_count || "—"}
+                          </td>
+                          <td>
+                            <ChevronRight size={16} color={COLORS.muted} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ borderTop: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
+                <Pagination page={page} total={total} limit={LIMIT} onPage={(p) => load({ page: p })} />
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

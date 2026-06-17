@@ -483,7 +483,7 @@ export default function Dashboard() {
             <div style={{ padding: "16px 20px" }}>
               <SectionTitle title="Department Overview" />
             </div>
-            <div style={{ overflowX: "auto", flex: 1 }}>
+            <div className="resp-table-wrap" style={{ flex: 1 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ color: THEME.muted, fontSize: "11px", textTransform: "uppercase" }}>

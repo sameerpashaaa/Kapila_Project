@@ -293,7 +293,7 @@ export default function ChefStatsScreen() {
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
           <Card>
             <h3 style={{ fontSize: 16, margin: "0 0 16px" }}>Top Materials Consumed (Cost)</h3>
-            <div style={{ overflowX: "auto" }}>
+            <div className="resp-table-wrap">
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>

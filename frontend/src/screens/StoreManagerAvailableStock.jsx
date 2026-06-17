@@ -99,6 +99,8 @@ export default function StoreManagerAvailableStock() {
         borderBottom: "1px solid #E2E8F0",
         padding: "16px 24px",
         display: "flex",
+        flexWrap: "wrap",
+        gap: "12px",
         alignItems: "center",
         justifyContent: "space-between",
         flexShrink: 0
@@ -167,7 +169,7 @@ export default function StoreManagerAvailableStock() {
             <div style={{ height: "24px", width: "1px", background: COLORS.border, margin: "0 6px" }}></div>
             
             {/* Pill Filters */}
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <button
                 onClick={() => handleFilterChange("low_stock", filters.low_stock === "true" ? "" : "true")}
                 className={filters.low_stock === "true" ? "chip active" : "chip"}

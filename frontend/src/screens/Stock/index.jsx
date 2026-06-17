@@ -8,7 +8,8 @@ import { usePaginatedApi } from "../../hooks/useApi";
 import * as api from "../../api";
 import { useAppContext } from "../../context/AppContext";
 import {
-  LayoutList, Download, RefreshCw, BarChart2, ShoppingBag, Filter
+  LayoutList, Download, RefreshCw, BarChart2, ShoppingBag, Filter,
+  AlertOctagon
 } from "lucide-react";
 
 import { today } from "../../utils/dates";
@@ -24,7 +25,6 @@ import QuickAdjustmentModal from "./QuickAdjustmentModal";
 // Extracted shared components
 import { StockKpiCards } from "../../components/StockMaster/StockKpiCards";
 import StoreAlertsPanel from "../../components/StockMaster/StoreAlertsPanel";
-import { NewStockEntryForm } from "../../components/StockMaster/NewStockEntryForm";
 import { StockTable } from "../../components/StockMaster/StockTable";
 
 export default function StockScreen() {
@@ -39,7 +39,6 @@ export default function StockScreen() {
   const [editMinAlert, setEditMinAlert] = useState("");
   const [editReason, setEditReason] = useState("Audit Correction");
   const [editNotes, setEditNotes] = useState("");
-  const [reorderItem, setReorderItem] = useState(null);
 
   // Print Label Preview Modal State
   const [printModalItem, setPrintModalItem] = useState(null);
@@ -221,7 +220,7 @@ export default function StockScreen() {
   });
 
   const handleReorderClick = (item) => {
-    setReorderItem(item);
+    load({ page: 1, q: item.name });
   };
 
   const generateWhatsAppPO = () => {
@@ -266,6 +265,8 @@ export default function StockScreen() {
     });
   };
 
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%" }}>
       {/* KPI Strip */}
@@ -275,14 +276,83 @@ export default function StockScreen() {
         handleStatCardClick={handleStatCardClick} 
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, flex: 1, minHeight: 0 }}>
+      {/* Collapsible Alerts Panel */}
+      {(lowStockItems.length > 0 || expiringSoonItems.length > 0) && (
+        <div style={{ marginBottom: 16, flexShrink: 0 }}>
+          {alertsExpanded ? (
+            <div style={{ position: "relative" }}>
+              <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}>
+                <button 
+                  onClick={() => setAlertsExpanded(false)}
+                  style={{ 
+                    background: "none", 
+                    border: "none", 
+                    color: COLORS.brand, 
+                    fontSize: 12, 
+                    fontWeight: 600, 
+                    cursor: "pointer", 
+                    padding: "4px 8px" 
+                  }}
+                >
+                  Collapse Alerts
+                </button>
+              </div>
+              <StoreAlertsPanel
+                lowStockItems={lowStockItems}
+                expiringSoonItems={expiringSoonItems}
+                copyPOToClipboard={copyPOToClipboard}
+                generateWhatsAppPO={generateWhatsAppPO}
+                handleReorderClick={handleReorderClick}
+                style={{ width: "100%" }}
+              />
+            </div>
+          ) : (
+            <div style={{ 
+              background: COLORS.surface, 
+              border: `1px solid ${COLORS.border}`, 
+              borderRadius: 12, 
+              padding: "12px 20px", 
+              display: "flex", 
+              justifyContent: "space-between", 
+              alignItems: "center" 
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <AlertOctagon size={16} style={{ color: COLORS.danger }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.danger }}>
+                  Store Alerts:
+                </span>
+                <span style={{ fontSize: 13, color: COLORS.text }}>
+                  {lowStockItems.length} items low on stock
+                  {expiringSoonItems.length > 0 && ` and ${expiringSoonItems.length} items expiring soon`}
+                </span>
+              </div>
+              <button 
+                onClick={() => setAlertsExpanded(true)}
+                style={{ 
+                  background: "none", 
+                  border: "none", 
+                  color: COLORS.brand, 
+                  fontSize: 13, 
+                  fontWeight: 600, 
+                  cursor: "pointer", 
+                  padding: "4px 8px" 
+                }}
+              >
+                Expand Alerts
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1, minHeight: 0 }}>
         {/* List */}
         <Card style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
           {/* Tabs header */}
           <div 
             role="tablist" 
             aria-label="Stock Master Views"
-            style={{ padding: "12px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "center" }}
+            style={{ padding: "12px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", gap: 8, alignItems: "center", overflowX: "auto", flexWrap: "nowrap" }}
           >
             {[
               { id: "inventory",   label: "Inventory",     icon: <LayoutList size={14} /> },
@@ -339,7 +409,7 @@ export default function StockScreen() {
                 <div style={{ height: "24px", width: "1px", background: COLORS.border, margin: "0 6px" }}></div>
                 
                 {/* Pill Filters */}
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   <button
                     onClick={() => handleFilterChange("low_stock", filters.low_stock === "true" ? "" : "true")}
                     className={filters.low_stock === "true" ? "chip active" : "chip"}
@@ -450,24 +520,6 @@ export default function StockScreen() {
           )}
 
          </Card>
-
-        {/* Right Panel containing Add Form and Low Stock Alerts */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <StoreAlertsPanel
-            lowStockItems={lowStockItems}
-            expiringSoonItems={expiringSoonItems}
-            copyPOToClipboard={copyPOToClipboard}
-            generateWhatsAppPO={generateWhatsAppPO}
-            handleReorderClick={handleReorderClick}
-          />
-        
-          <Card>
-            <NewStockEntryForm
-              onSuccess={() => { load({ page: 1 }); refreshActiveTab(); }}
-              reorderItem={reorderItem}
-            />
-          </Card>
-        </div>
       </div>
 
       {/* Print Preview Modal */}

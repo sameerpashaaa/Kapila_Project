@@ -943,7 +943,7 @@ export default function IndentScreen() {
                   <Trash2 size={13} /> Clear All
                 </button>
               </div>
-              <div className="table-container" style={{ flex: 1, overflowY: "auto" }}>
+              <div className="table-container resp-table-wrap" style={{ flex: 1, overflowY: "auto" }}>
                 <table className="excel-table">
                   <colgroup>
                     <col style={{ width: "40px" }} />
@@ -1057,13 +1057,13 @@ export default function IndentScreen() {
         {/* --- BOTTOM: INDENT HISTORY --- */}
         <div className="indent-history-section">
           <Card style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "20px 24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isHistoryExpanded ? "16px" : "0" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "space-between", alignItems: "center", marginBottom: isHistoryExpanded ? "16px" : "0" }}>
               <h2 style={{ fontSize: "15px", fontWeight: 700, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }} onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}>
                 Indent History
                 {isHistoryExpanded ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
               </h2>
               {isHistoryExpanded && (
-                <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
                   <div style={{ position: "relative" }}>
                     <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }} />
                     <input
@@ -1094,7 +1094,7 @@ export default function IndentScreen() {
               <>
                 {loading ? <p style={{ color: COLORS.muted, textAlign: "center", padding: 32 }}>Loading…</p> : error ? <ErrorMsg error={error} /> : (
                   <>
-                    <div style={{ overflowX: "auto" }}>
+                    <div className="resp-table-wrap">
                       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                         <colgroup>
                           <col style={{ width: "22%" }} />
@@ -1204,7 +1204,7 @@ export default function IndentScreen() {
         .indent-top-section {
           display: flex;
           gap: 16px;
-          height: 600px;
+          min-height: 600px;
         }
         .indent-left-panel {
           width: 35%;
@@ -1212,6 +1212,18 @@ export default function IndentScreen() {
         }
         .indent-right-panel {
           width: 65%;
+        }
+
+        @media (max-width: 767px) {
+          .indent-top-section {
+            flex-direction: column;
+            height: auto;
+            min-height: unset;
+          }
+          .indent-left-panel, .indent-right-panel {
+            width: 100%;
+            min-width: 100%;
+          }
         }
         .indent-history-section {
           width: 100%;

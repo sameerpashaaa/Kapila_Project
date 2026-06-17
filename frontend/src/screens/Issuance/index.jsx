@@ -217,7 +217,7 @@ export default function StoreIssuancePage() {
       const base64 = reader.result.split(",")[1];
       try {
         // Fix for 401 bug: use getAccessToken() to send Bearer token to backend
-        const BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+        const BASE = import.meta.env.VITE_API_URL || "/api";
         const url = (BASE.startsWith("http") ? BASE : window.location.origin + BASE) + "/scan/indent";
         const token = getAccessToken();
         const res = await fetch(url, {

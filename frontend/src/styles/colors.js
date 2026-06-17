@@ -230,6 +230,80 @@ export const globalCss = `
     to { opacity: 1; transform: translateY(0); }
   }
   .fade-in { animation: fadeIn 0.2s ease-out; }
+  
+  /* --- Responsive Utilities --- */
+  .resp-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Optional shadow indicator for scrolling */
+    background: linear-gradient(to right, white 30%, rgba(255,255,255,0)),
+      linear-gradient(to right, rgba(255,255,255,0), white 70%) 100% 0,
+      radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.15), rgba(0,0,0,0)),
+      radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.15), rgba(0,0,0,0)) 100% 0;
+    background-repeat: no-repeat;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+  
+  .resp-table-wrap table {
+    min-width: 600px; /* Force minimum width to trigger scroll on mobile */
+  }
+
+  .resp-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    width: 100%;
+  }
+
+  /* Basic responsive grid columns */
+  .resp-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .resp-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .resp-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  @media (max-width: 767px) {
+    .resp-grid-2, .resp-grid-3, .resp-grid-4 {
+      grid-template-columns: 1fr;
+    }
+    
+    .resp-stack {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+    
+    .resp-hide-mobile {
+      display: none !important;
+    }
+
+    .resp-panel-layout {
+      flex-direction: column !important;
+    }
+    .resp-panel-left {
+      width: 100% !important;
+      min-width: 100% !important;
+    }
+  }
+
+  /* Responsive panel classes for desktop */
+  .resp-panel-layout {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+  }
+  .resp-panel-left {
+    width: 30%;
+    min-width: 280px;
+    flex-shrink: 0;
+  }
+  .resp-panel-right {
+    flex: 1;
+    min-height: 360px;
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .resp-grid-3, .resp-grid-4 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
 `;
-
-

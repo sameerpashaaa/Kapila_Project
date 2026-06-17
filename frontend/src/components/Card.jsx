@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { COLORS } from "../styles/colors";
+import { useBreakpoint } from "../styles/responsive";
 
 export default function Card({ children, style = {}, onClick, variant = "default", ...props }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -26,6 +27,8 @@ export default function Card({ children, style = {}, onClick, variant = "default
     }
   };
 
+  const { isMobile } = useBreakpoint();
+
   return (
     <div 
       onClick={onClick}
@@ -35,8 +38,9 @@ export default function Card({ children, style = {}, onClick, variant = "default
         background: COLORS.surface, 
         border: `1px solid ${COLORS.border}`, 
         borderRadius: 14, 
-        padding: 20, 
+        padding: isMobile ? 14 : 20, 
         boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
+        minWidth: 0,
         ...getVariantStyles(),
         ...style 
       }}

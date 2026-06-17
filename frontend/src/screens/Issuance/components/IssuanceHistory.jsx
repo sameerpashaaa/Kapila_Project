@@ -159,7 +159,7 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
             </p>
           ) : (
             <>
-              <div style={{ overflowX: "auto" }}>
+              <div className="resp-table-wrap">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>

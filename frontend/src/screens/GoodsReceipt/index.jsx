@@ -304,7 +304,7 @@ export default function GoodsReceiptScreen() {
             Items Received
             {form.po_id && <span style={{ color: COLORS.accent, marginLeft: 8 }}>← pre-filled from PO</span>}
           </p>
-          <div style={{ overflowX: "auto" }}>
+          <div className="resp-table-wrap">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 900 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>

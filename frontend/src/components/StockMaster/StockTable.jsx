@@ -127,9 +127,10 @@ export function StockTable({
       {groupByItem ? (
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
           <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
-            <table>
-              <thead>
-                <tr>
+            <div className="resp-table-wrap">
+              <table>
+                <thead>
+                  <tr>
                   <th>Item</th>
                   <th>Total Batches</th>
                   <th>Total Remaining</th>
@@ -307,15 +308,17 @@ export function StockTable({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
           <Pagination page={page} total={total} limit={limit} onPage={onPage} />
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
           <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
-            <table>
-              <thead>
-                <tr>
+            <div className="resp-table-wrap">
+              <table>
+                <thead>
+                  <tr>
                   <th>Item</th>
                   <th>Batch</th>
                   <th>Original Qty</th>
@@ -464,6 +467,7 @@ export function StockTable({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
           <Pagination page={page} total={total} limit={limit} onPage={onPage} />
         </div>

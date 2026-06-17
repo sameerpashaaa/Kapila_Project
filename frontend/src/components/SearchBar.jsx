@@ -11,12 +11,12 @@ export default function SearchBar({ onSearch, placeholder = "Search…" }) {
   };
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: 8 }}>
+    <form onSubmit={submit} style={{ display: "flex", gap: 8, width: "100%", minWidth: 0 }}>
       <input
         value={q}
         onChange={(e) => { setQ(e.target.value); if (!e.target.value) onSearch(""); }}
         placeholder={placeholder}
-        style={{ flex: 1, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: "7px 16px", fontSize: 13, color: COLORS.text }}
+        style={{ flex: 1, minWidth: 0, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: "7px 16px", fontSize: 13, color: COLORS.text }}
       />
       <Btn type="submit" variant="primary" small style={{ borderRadius: 20, padding: "7px 16px" }}>Search</Btn>
     </form>

@@ -7,7 +7,23 @@ async function listPlans(req, res, next) {
 
     const qb = db("production_plans as p")
       .join("recipes as r", "p.recipe_id", "r.id")
-      .select("p.*", "r.name as recipe_name", "r.category as recipe_category", "r.instructions as recipe_instructions", "r.base_plates as recipe_base_plates")
+      .select(
+        "p.id",
+        "p.dept",
+        "p.recipe_id",
+        "p.planned_plates",
+        "p.plates_sold",
+        "p.plates_wasted",
+        "p.waste_percentage",
+        "p.waste_reason",
+        "p.status",
+        "p.created_at",
+        db.raw("p.planned_date::text as planned_date"),
+        "r.name as recipe_name",
+        "r.category as recipe_category",
+        "r.instructions as recipe_instructions",
+        "r.base_plates as recipe_base_plates"
+      )
       .orderBy("p.planned_date", "desc")
       .orderBy("p.id", "desc");
 
@@ -38,15 +54,7 @@ async function listPlans(req, res, next) {
           const d = String(plan.planned_date.getDate()).padStart(2, '0');
           formattedDate = `${y}-${m}-${d}`;
         } else if (typeof plan.planned_date === 'string') {
-          if (plan.planned_date.includes('T')) {
-            const date = new Date(plan.planned_date);
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            formattedDate = `${y}-${m}-${d}`;
-          } else {
-            formattedDate = plan.planned_date.slice(0, 10);
-          }
+          formattedDate = plan.planned_date.slice(0, 10);
         }
 
         return { ...plan, planned_date: formattedDate, items };
@@ -120,25 +128,7 @@ async function createPlan(req, res, next) {
         .where("production_plan_id", planRow.id)
         .select("*");
 
-      let formattedDate = planRow.planned_date;
-      if (planRow.planned_date instanceof Date) {
-        const y = planRow.planned_date.getFullYear();
-        const m = String(planRow.planned_date.getMonth() + 1).padStart(2, '0');
-        const d = String(planRow.planned_date.getDate()).padStart(2, '0');
-        formattedDate = `${y}-${m}-${d}`;
-      } else if (typeof planRow.planned_date === 'string') {
-        if (planRow.planned_date.includes('T')) {
-          const date = new Date(planRow.planned_date);
-          const y = date.getFullYear();
-          const m = String(date.getMonth() + 1).padStart(2, '0');
-          const d = String(date.getDate()).padStart(2, '0');
-          formattedDate = `${y}-${m}-${d}`;
-        } else {
-          formattedDate = planRow.planned_date.slice(0, 10);
-        }
-      }
-
-      return { ...planRow, planned_date: formattedDate, recipe_name: recipe.name, items };
+      return { ...planRow, planned_date: planned_date, recipe_name: recipe.name, items };
     });
 
     res.status(201).json({ success: true, data: resultPlan });
@@ -153,7 +143,10 @@ async function completePlan(req, res, next) {
     const { id } = req.params;
     const { plates_sold, plates_wasted, waste_reason } = req.body;
 
-    const plan = await db("production_plans").where("id", id).first();
+    const plan = await db("production_plans")
+      .select("*", db.raw("planned_date::text as planned_date_str"))
+      .where("id", id)
+      .first();
     if (!plan) {
       return res.status(404).json({ success: false, error: "Production plan not found." });
     }
@@ -198,24 +191,7 @@ async function completePlan(req, res, next) {
       return { ...updatedPlan, items: updatedItems };
     });
 
-    let formattedDate = completedPlan.planned_date;
-    if (completedPlan.planned_date instanceof Date) {
-      const y = completedPlan.planned_date.getFullYear();
-      const m = String(completedPlan.planned_date.getMonth() + 1).padStart(2, '0');
-      const d = String(completedPlan.planned_date.getDate()).padStart(2, '0');
-      formattedDate = `${y}-${m}-${d}`;
-    } else if (typeof completedPlan.planned_date === 'string') {
-      if (completedPlan.planned_date.includes('T')) {
-        const date = new Date(completedPlan.planned_date);
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        formattedDate = `${y}-${m}-${d}`;
-      } else {
-        formattedDate = completedPlan.planned_date.slice(0, 10);
-      }
-    }
-    completedPlan.planned_date = formattedDate;
+    completedPlan.planned_date = plan.planned_date_str;
 
     res.json({ success: true, data: completedPlan });
   } catch (err) {
@@ -261,7 +237,7 @@ async function getAnalytics(req, res, next) {
     // 2. Total waste % per day
     const dailyWaste = await db("production_plans")
       .where("status", "Completed")
-      .select("planned_date")
+      .select(db.raw("planned_date::text as planned_date"))
       .select(
         db.raw("round(avg(waste_percentage)::numeric, 2) as avg_waste_percentage"),
         db.raw("sum(planned_plates) as total_planned"),

@@ -54,11 +54,7 @@ export default function ProductionPlannerScreen() {
 
   // Daily Planning states
   const [productionPlans, setProductionPlans] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().slice(0, 10);
-  });
+  const [selectedDate, setSelectedDate] = useState(() => today());
   const [scheduleFilterDate, setScheduleFilterDate] = useState(() => today());
   
   // Merged Department states
@@ -234,9 +230,7 @@ export default function ProductionPlannerScreen() {
   const startPlanning = (recipe) => {
     setPlanningRecipe(recipe);
     setPlannedPlates("100");
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setSelectedDate(tomorrow.toISOString().slice(0, 10));
+    setSelectedDate(today());
     setActiveTab("planning");
   };
 
@@ -1002,7 +996,7 @@ export default function ProductionPlannerScreen() {
               <div style={{ padding: "16px 20px", borderBottom: `1px solid ${COLORS.border}` }}>
                 <h3 style={{ fontSize: 14, color: COLORS.text, fontWeight: 600, margin: 0 }}>Dish Waste Rankings</h3>
               </div>
-              <div style={{ overflowX: "auto" }}>
+              <div className="resp-table-wrap">
                 <table>
                   <thead>
                     <tr>
@@ -1039,7 +1033,7 @@ export default function ProductionPlannerScreen() {
               <div style={{ padding: "16px 20px", borderBottom: `1px solid ${COLORS.border}` }}>
                 <h3 style={{ fontSize: 14, color: COLORS.text, fontWeight: 600, margin: 0 }}>Daily Waste Trends (Last 30 Days)</h3>
               </div>
-              <div style={{ overflowX: "auto" }}>
+              <div className="resp-table-wrap">
                 <table>
                   <thead>
                     <tr>

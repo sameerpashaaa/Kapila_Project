@@ -379,7 +379,7 @@ export default function SupplierDocUpload({ supplierList, onSuccess, onClose }) 
                 <span style={{ color: COLORS.success }}>✓ Green</span> = matched to existing stock · <span style={{ color: COLORS.warning }}>⚠ Amber</span> = new item (will be created) · All fields are editable.
               </p>
 
-              <div style={{ overflowX: "auto", marginBottom: 16 }}>
+              <div className="resp-table-wrap" style={{ marginBottom: 16 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 640 }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>

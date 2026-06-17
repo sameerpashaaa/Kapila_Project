@@ -2,8 +2,12 @@ import { COLORS } from "../styles/colors";
 import { useAuth } from "../context/AuthContext";
 
 export default function ProtectedScreen({ permission, children }) {
-  const { hasPermission } = useAuth();
-  if (hasPermission(permission)) return children;
+  const { hasPermission, hasAnyPermission } = useAuth();
+  const allowed = Array.isArray(permission)
+    ? hasAnyPermission(permission)
+    : hasPermission(permission);
+
+  if (allowed) return children;
 
   return (
     <div style={{

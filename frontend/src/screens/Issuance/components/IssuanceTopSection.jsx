@@ -18,18 +18,9 @@ export default function IssuanceTopSection({
   onToggleConfirm,
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 20,
-        marginBottom: 20,
-        /* Height is driven by the taller of the two columns — left panel is
-           content-driven; right panel has a min-height to avoid collapsing */
-        alignItems: "stretch",
-      }}
-    >
+    <div className="resp-panel-layout" style={{ marginBottom: 20 }}>
       {/* LEFT — form panel, ~30% */}
-      <div style={{ width: "30%", minWidth: 280, flexShrink: 0 }}>
+      <div className="resp-panel-left">
         <IssuanceLeftPanel
           pendingIndents={pendingIndents}
           selected={selectedIndent}
@@ -46,7 +37,7 @@ export default function IssuanceTopSection({
       </div>
 
       {/* RIGHT — items grid, ~70% */}
-      <div style={{ flex: 1, minHeight: 360 }}>
+      <div className="resp-panel-right">
         <IssuanceItemsGrid
           selectedIndent={selectedIndent}
           issueQtys={issueQtys}
