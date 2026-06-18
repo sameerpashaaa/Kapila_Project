@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Package, Factory, Building2, Receipt, Inbox, Bell, 
   Scale, ArrowLeftRight, CalendarRange, ClipboardList, Send, ChefHat, 
   ArchiveRestore, Trash2, Search, Users, ShieldCheck, LogOut, BarChart3,
-  CalendarCheck
+  CalendarCheck, ClipboardCheck
 } from "lucide-react";
 
 import Dashboard      from "./screens/Dashboard";
@@ -28,6 +28,8 @@ import UserManagementScreen from "./screens/UserManagement";
 import AuditLogsScreen from "./screens/AuditLogs";
 import LoginScreen from "./screens/Login";
 import ProductionPlannerScreen from "./screens/ProductionPlanner";
+import AuditScreen from "./screens/audit/AuditScreen";
+
 
 import StoreManagerHome from "./screens/StoreManagerHome";
 import StoreManagerAvailableStock from "./screens/StoreManagerAvailableStock";
@@ -45,6 +47,7 @@ const NAV_CATEGORIES = [
     title: "Master Data",
     items: [
       { id: "stock",        label: "Stock Master",    permission: "stock.view", icon: <Package size={16} /> },
+      { id: "audit",        label: "Stock Audit",     permission: "audit.view", icon: <ClipboardCheck size={16} /> },
     ]
   },
   {
@@ -160,6 +163,7 @@ function Inner() {
     chef_stats: <ProtectedScreen permission="chef_stats.view"><ChefStatsScreen /></ProtectedScreen>,
     users: <ProtectedScreen permission="users.view"><UserManagementScreen /></ProtectedScreen>,
     audit_logs: <ProtectedScreen permission="audit_logs.view"><AuditLogsScreen /></ProtectedScreen>,
+    audit: <ProtectedScreen permission="audit.view"><AuditScreen /></ProtectedScreen>,
     
     store_manager_home: <ProtectedScreen permission="stock.view"><StoreManagerHome /></ProtectedScreen>,
     store_manager_available_stock: <ProtectedScreen permission="stock.view"><StoreManagerAvailableStock /></ProtectedScreen>,

@@ -94,6 +94,22 @@ const schemas = {
       expiry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
     })).min(1),
   }),
+  audit: z.object({
+    reference: z.string().min(1).max(100),
+    auditor_name: z.string().min(1).max(100),
+    department_id: z.number().int().nullable().optional(),
+    notes: z.string().max(1000).optional().nullable(),
+  }),
+  auditItemUpdate: z.object({
+    physical_qty: z.number().nonnegative(),
+  }),
+  auditFinalise: z.object({
+    items: z.array(z.object({
+      audit_item_id: z.number().int().positive(),
+      discrepancy_reason: z.string().max(500).optional().nullable(),
+      action: z.enum(["adjust_db", "recount", "investigate"]).nullable().optional(),
+    })).min(1),
+  }),
 };
 
 const validate = (schemaName) => (req, res, next) => {

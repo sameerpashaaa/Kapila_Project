@@ -164,3 +164,8 @@ export const chefStats = {
   overview: (params) => api.get("/chef-stats", params),
   detail:   (deptId, params) => api.get(`/chef-stats/${deptId}`, params),
 };
+
+export const audits = {
+  summary: () => api.get("/audits/summary"),
+};
+

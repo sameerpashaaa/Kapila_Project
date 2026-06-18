@@ -107,6 +107,7 @@ app.use("/api/reorder-points",  require("./routes/reorderPoints"));
 app.use("/api/approved-delivery", require("./routes/approvedDelivery"));
 app.use("/api/chef-stats",  require("./routes/chefStats"));
 app.use("/api/production-plans", require("./routes/productionPlans"));
+app.use("/api/audits",          require("./routes/audits"));
 app.use("/api",                 require("./routes/recipes"));
 
 // AI health check — tells the frontend if Gemini API is configured

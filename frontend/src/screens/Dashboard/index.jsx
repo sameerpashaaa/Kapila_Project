@@ -4,8 +4,9 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from "recharts";
-import { Bell, User, CheckCircle, AlertTriangle, Info, ArrowRight, Activity, Package, Layers, TrendingUp, Clock, ClipboardList, Send, ChefHat, ArchiveRestore, Trash2 } from "lucide-react";
+import { Bell, User, CheckCircle, AlertTriangle, Info, ArrowRight, Activity, Package, Layers, TrendingUp, Clock, ClipboardList, Send, ChefHat, ArchiveRestore, Trash2, ClipboardCheck } from "lucide-react";
 import * as api from "../../api";
+import { useAppContext } from "../../context/AppContext";
 
 import { COLORS as THEME } from "../../styles/colors";
 
@@ -44,15 +45,17 @@ const AnimatedNumber = ({ value, formatter = (v) => v }) => {
 };
 
 // --- COMPONENTS ---
-const Card = ({ children, style, className = "" }) => (
+const Card = ({ children, style, className = "", onClick }) => (
   <div
     className={className}
+    onClick={onClick}
     style={{
       backgroundColor: THEME.card,
       border: `1px solid ${THEME.border}`,
       borderRadius: "12px",
       boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
       padding: "16px 20px",
+      cursor: onClick ? "pointer" : "default",
       ...style,
     }}
   >
@@ -70,11 +73,13 @@ const SectionTitle = ({ title }) => (
 
 // --- MAIN DASHBOARD ---
 export default function Dashboard() {
+  const { setCurrentScreen } = useAppContext();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // Data States
   const [summaryData, setSummaryData] = useState(null);
+  const [openAuditsCount, setOpenAuditsCount] = useState(0);
   const [recentEvents, setRecentEvents] = useState([]);
   const [bestRates, setBestRates] = useState([]);
   const [priceTrend, setPriceTrend] = useState({ name: "Trend", data: [] });
@@ -90,8 +95,11 @@ export default function Dashboard() {
   // Fetch Data
   const fetchAllData = async () => {
     try {
-      // 1. Fetch main dashboard summary
-      const summaryRes = await api.dashboard.summary(todayStr());
+      // 1. Fetch main dashboard summary & audits summary
+      const [summaryRes, auditSummaryRes] = await Promise.all([
+        api.dashboard.summary(todayStr()),
+        api.audits.summary().catch(() => ({ data: { open: 0 } }))
+      ]);
       
       // 2. Fetch recent lists to build activity feed & other widgets
       // We limit to 15 to get enough recent events to sort
@@ -105,6 +113,7 @@ export default function Dashboard() {
       ]);
 
       setSummaryData(summaryRes.data);
+      setOpenAuditsCount(auditSummaryRes.data?.open || 0);
       setPendingPOs(poRes.data?.filter(po => po.status?.toLowerCase() === 'pending').length || 0);
 
       // Build Activity Feed
@@ -226,7 +235,18 @@ export default function Dashboard() {
     { label: "Today's Issuances", value: kpis.today_issuances || 0, color: THEME.success, delta: "Issued today", icon: <Send size={18} /> },
     { label: "Plates Produced", value: kpis.today_plates || 0, color: THEME.primary, delta: "Across all depts", icon: <ChefHat size={18} /> },
     { label: "Leftover Qty", value: kpis.today_leftovers || 0, color: (kpis.today_leftovers || 0) > 0 ? THEME.warning : THEME.success, delta: "Recorded today", icon: <ArchiveRestore size={18} /> },
-    { label: "Overall Waste Rate", value: wasteRate, formatter: (v) => v.toFixed(1) + "%", color: (kpis.today_plates || 0) === 0 ? THEME.neutral : wasteRate > 2 ? THEME.danger : wasteRate > 1 ? THEME.warning : THEME.success, delta: (kpis.today_plates || 0) === 0 ? "No production" : wasteRate > 2 ? "Above target" : "On track", icon: <Trash2 size={18} /> }
+    { label: "Overall Waste Rate", value: wasteRate, formatter: (v) => v.toFixed(1) + "%", color: (kpis.today_plates || 0) === 0 ? THEME.neutral : wasteRate > 2 ? THEME.danger : wasteRate > 1 ? THEME.warning : THEME.success, delta: (kpis.today_plates || 0) === 0 ? "No production" : wasteRate > 2 ? "Above target" : "On track", icon: <Trash2 size={18} /> },
+    {
+      label: "Open Audits",
+      value: openAuditsCount,
+      color: openAuditsCount > 0 ? THEME.warning : THEME.success,
+      delta: openAuditsCount > 0 ? "Reconciliation active" : "Up to date",
+      icon: <ClipboardCheck size={18} />,
+      onClick: () => {
+        localStorage.setItem("kapila_audit_filter", "in_progress");
+        setCurrentScreen("audit");
+      }
+    }
   ];
 
   // Stock Health Pie Data
@@ -310,13 +330,15 @@ export default function Dashboard() {
             return (
               <Card 
                 key={i} 
+                onClick={kpi.onClick}
                 style={{ 
                   display: "flex", gap: "16px", alignItems: "center", padding: "16px 20px",
                   ...(isFeatured ? {
                     background: `linear-gradient(135deg, ${THEME.brand} 0%, ${THEME.brandDark} 100%)`,
                     color: "#fff",
                     border: "none",
-                  } : {})
+                  } : {}),
+                  ...kpi.style
                 }}
               >
                 <div style={{

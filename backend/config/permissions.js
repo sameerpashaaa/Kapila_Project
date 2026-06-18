@@ -90,6 +90,10 @@ const PERMISSIONS = [
   ["approved_delivery.commit", "approved_delivery", "commit", "Commit approved delivery"],
   ["settings.view", "settings", "view", "View settings"],
   ["settings.manage", "settings", "manage", "Manage settings"],
+  ["audit.view", "audit", "view", "View stock audits"],
+  ["audit.create", "audit", "create", "Create stock audits"],
+  ["audit.enter_counts", "audit", "enter_counts", "Enter stock audit counts"],
+  ["audit.finalise", "audit", "finalise", "Finalise stock audits"],
 ].map(([key, resource, action, label]) => ({ key, resource, action, label }));
 
 const all = PERMISSIONS.map((p) => p.key);
@@ -103,11 +107,13 @@ const ROLE_PERMISSION_KEYS = {
     "suppliers.delete", "departments.create", "departments.edit", "departments.delete", "stock.delete",
     "purchase_orders.delete", "grn.delete", "transfers.delete", "menu.delete", "recipes.delete",
     "production.delete", "leftovers.delete", "issuances.delete", "indents.delete",
+    "audit.finalise",
   ].includes(key)),
   store_manager: [
     "stock.view", "stock.create", "stock.edit", "stock.delete", "stock.export", "stock.reconcile", "stock.scan",
     "issuances.view", "issuances.create", "issuances.scan", "issuances.export",
     "scan.indent", "scan.purchase", "scan.text",
+    "audit.view", "audit.create", "audit.enter_counts",
   ],
   chef: [
     "recipes.view", "recipes.create", "recipes.edit", "recipes.delete",
@@ -125,3 +131,4 @@ const ROLE_PERMISSION_KEYS = {
 };
 
 module.exports = { PERMISSIONS, ROLE_PERMISSION_KEYS };
+
