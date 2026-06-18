@@ -286,6 +286,10 @@ async function createAutoDraft(req, res, next) {
       };
     }));
 
+    if (req.body.preview) {
+      return res.json({ success: true, data: { items: itemsWithPrice } });
+    }
+
     const date = new Date().toISOString().slice(0, 10);
     const po_number = await generatePONumber(date);
 

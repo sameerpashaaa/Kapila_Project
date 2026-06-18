@@ -5,7 +5,7 @@
 import { useState, useRef, useCallback } from "react";
 import * as api from "../api";
 
-export function useLocalSpeech(lang = "en-IN") {
+export function useLocalSpeech() {
   const [listening, setListening]     = useState(false);
   const [statusMsg, setStatusMsg]     = useState("");
   const [transcript, setTranscript]   = useState("");

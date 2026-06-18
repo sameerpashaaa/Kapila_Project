@@ -115,6 +115,7 @@ const ROLE_PERMISSION_KEYS = {
     "production.view", "production.create", "production.edit", "production.delete",
     "leftovers.view", "leftovers.create", "leftovers.edit", "leftovers.delete",
     "waste_analytics.view", "waste_analytics.export",
+    "scan.indent", "scan.text",
   ],
   employee: [
     "dashboard.view", "departments.view", "transfers.view", "transfers.create", "menu.view",

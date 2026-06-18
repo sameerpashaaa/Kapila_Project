@@ -168,7 +168,7 @@ export default function IndentScreen() {
   const [availableStock, setAvailableStock] = useState({});
 
   // Local speech-to-text (Whisper Tiny — no Google, no internet)
-  const { listening, statusMsg: speechStatus, startRecording, stopRecording } = useLocalSpeech("en-IN");
+  const { listening, statusMsg: speechStatus, startRecording, stopRecording } = useLocalSpeech();
   
   const [form, setForm] = useState({ dept: "", date: today(), items: [{ id: Date.now(), name: "", qty: "", unit: "kg", item_code: "", notes: "" }] });
   const [activeRowIdx, setActiveRowIdx] = useState(0);

@@ -8,7 +8,7 @@ import { COLORS, UNITS } from "../../styles/colors";
 import { usePaginatedApi } from "../../hooks/useApi";
 import { useAppContext } from "../../context/AppContext";
 import * as api from "../../api";
-import { Plus, ArrowLeft, FileText, Truck, CheckCircle, XCircle, Clock, ChevronRight, Mic, FileImage, Loader } from "lucide-react";
+import { Plus, ArrowLeft, FileText, Truck, CheckCircle, XCircle, Clock, ChevronRight, Mic, FileImage, Loader, Camera } from "lucide-react";
 
 const LIMIT = 20;
 import { today } from "../../utils/dates";
@@ -39,12 +39,11 @@ export default function PurchaseOrdersScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const fileInputRef = useRef();
+  const cameraInputRef = useRef();
   const [scanningBill, setScanningBill] = useState(false);
   const [showVoicePanel, setShowVoicePanel] = useState(false);
   const [importText, setImportText] = useState("");
-  const [listenLang, setListenLang] = useState("en-IN");
-
-  const { listening, interimText, startRecording, stopRecording } = useLocalSpeech(listenLang);
+  const { listening, interimText, startRecording, stopRecording } = useLocalSpeech();
 
   const { items, total, page, loading, error, fetch } = usePaginatedApi(api.purchaseOrders.list);
 
@@ -225,10 +224,16 @@ export default function PurchaseOrdersScreen() {
   const autoDraft = async () => {
     if (!form.supplier_id) return flash("Select a supplier for auto-draft.", COLORS.coral);
     try {
-      const res = await api.purchaseOrders.autoDraft(parseInt(form.supplier_id));
-      flash(`Auto-draft PO created: ${res.data.po_number} ✓`);
-      setView("list");
-      load({ page: 1 });
+      const res = await api.purchaseOrders.autoDraft(parseInt(form.supplier_id), true);
+      if (res.data && res.data.items && res.data.items.length > 0) {
+        setLineItems(res.data.items.map(it => ({
+          ...it,
+          id: Date.now() + Math.random()
+        })));
+        flash(`Populated ${res.data.items.length} low stock items. Please review and submit.`);
+      } else {
+        flash("No low stock items found to reorder.");
+      }
     } catch (e) { flash(e.message, COLORS.coral); }
   };
 
@@ -452,13 +457,17 @@ export default function PurchaseOrdersScreen() {
             New Purchase Order
           </h3>
           <div style={{ display: "flex", gap: 8 }}>
-            <Btn variant="ghost" small onClick={() => setShowVoicePanel(!showVoicePanel)} icon={<Mic size={14} />} style={{ fontSize: 11, padding: "5px 10px" }}>
-              {showVoicePanel ? "Standard" : "Voice Dictate"}
+            <Btn variant="ghost" onClick={() => setShowVoicePanel(!showVoicePanel)} icon={<Mic size={16} />} style={{ fontSize: 13, fontWeight: "bold", padding: "8px 12px" }}>
+              {showVoicePanel ? "Standard" : "Voice Input"}
             </Btn>
-            <Btn variant="ghost" small onClick={() => fileInputRef.current.click()} icon={scanningBill ? <Loader size={14} className="spin" /> : <FileImage size={14} />} style={{ fontSize: 11, padding: "5px 10px" }} disabled={scanningBill}>
-              {scanningBill ? "Scanning…" : "Scan Clip"}
+            <Btn variant="ghost" onClick={() => fileInputRef.current.click()} icon={scanningBill ? <Loader size={16} className="spin" /> : <FileImage size={16} />} style={{ fontSize: 13, fontWeight: "bold", padding: "8px 12px" }} disabled={scanningBill}>
+              {scanningBill ? "Scanning…" : "Scan Doc"}
+            </Btn>
+            <Btn variant="ghost" onClick={() => cameraInputRef.current.click()} icon={scanningBill ? <Loader size={16} className="spin" /> : <Camera size={16} />} style={{ fontSize: 13, fontWeight: "bold", padding: "8px 12px" }} disabled={scanningBill}>
+              {scanningBill ? "Scanning…" : "Scan using Camera"}
             </Btn>
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleScanBill} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleScanBill} />
           </div>
         </div>
 
@@ -500,33 +509,7 @@ export default function PurchaseOrdersScreen() {
             })()}
 
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Dictation Language</label>
-                <select
-                  value={listenLang}
-                  onChange={(e) => setListenLang(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    fontSize: 12,
-                    background: "#fff",
-                    border: `1px solid ${COLORS.border}`,
-                    color: COLORS.text,
-                    borderRadius: 6
-                  }}
-                >
-                  <option value="en-IN">🇺🇸 English (en-IN)</option>
-                  <option value="te-IN">🇮🇳 Telugu / తెలుగు (te-IN)</option>
-                  <option value="hi-IN">🇮🇳 Hindi / हिन्दी (hi-IN)</option>
-                  <option value="ta-IN">🇮🇳 Tamil / தமிழ் (ta-IN)</option>
-                  <option value="kn-IN">🇮🇳 Kannada / ಕನ್ನಡ (kn-IN)</option>
-                  <option value="ml-IN">🇮🇳 Malayalam / മലയാളം (ml-IN)</option>
-                  <option value="mr-IN">🇮🇳 Marathi / मराठी (mr-IN)</option>
-                  <option value="gu-IN">🇮🇳 Gujarati / ગુજરાતી (gu-IN)</option>
-                  <option value="bn-IN">🇮🇳 Bengali / বাংলা (bn-IN)</option>
-                  <option value="pa-IN">🇮🇳 Punjabi / ਪੰਜਾਬੀ (pa-IN)</option>
-                </select>
-              </div>
+
               <div style={{ display: "flex", alignItems: "flex-end" }}>
                 <button
                   onClick={startListening}

@@ -9,34 +9,62 @@ async function callGemini(contents, responseMimeType = "text/plain") {
     throw new Error("GEMINI_API_KEY is not configured in the .env file.");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  
-  const body = {
-    contents,
-    generationConfig: {}
-  };
-  
-  if (responseMimeType === "application/json") {
-    body.generationConfig.responseMimeType = "application/json";
+  const models = ["gemini-2.5-flash", "gemini-1.5-flash"];
+  let lastError = null;
+
+  for (const model of models) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    const body = {
+      contents,
+      generationConfig: {}
+    };
+    
+    if (responseMimeType === "application/json") {
+      body.generationConfig.responseMimeType = "application/json";
+    }
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          const isTransient = response.status === 503 || response.status === 429;
+          
+          if (isTransient && attempt < 2) {
+            console.warn(`Gemini API returned ${response.status} for ${model}. Retrying in 1s... (Attempt ${attempt}/2)`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          throw new Error(`Gemini API request failed (${response.status}): ${errText.slice(0, 200)}`);
+        }
+
+        const result = await response.json();
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) {
+          throw new Error("Empty response from Gemini API.");
+        }
+        return text.trim();
+      } catch (err) {
+        lastError = err;
+        console.error(`Error with model ${model} (attempt ${attempt}):`, err.message);
+        
+        const isTransient = err.message.includes("503") || err.message.includes("429");
+        if (!isTransient) {
+          break; // Don't retry other attempts for this model if it's a hard/validation error
+        }
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API request failed (${response.status}): ${errText.slice(0, 200)}`);
-  }
-
-  const result = await response.json();
-  const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error("Empty response from Gemini API.");
-  }
-  return text.trim();
+  throw lastError || new Error("Failed to call Gemini API after trying all models.");
 }
 
 /**

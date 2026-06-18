@@ -31,11 +31,10 @@ export function NewStockEntryForm({ onSuccess, reorderItem }) {
   const [scanningBill, setScanningBill]     = useState(false);
   const [showQuickImport, setShowQuickImport] = useState(false);
   const [importText, setImportText]           = useState("");
-  const [listenLang, setListenLang]           = useState("en-IN");
   const [activeRowIdx, setActiveRowIdx]       = useState(null);
   const [expandedCards, setExpandedCards]     = useState({});
 
-  const { listening, interimText, startRecording, stopRecording } = useLocalSpeech(listenLang);
+  const { listening, interimText, startRecording, stopRecording } = useLocalSpeech();
 
   useEffect(() => {
     if (reorderItem) {
@@ -237,15 +236,7 @@ export function NewStockEntryForm({ onSuccess, reorderItem }) {
           </p>
           <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 12 }}>Type, paste WhatsApp text, or use voice dictation in local languages.</p>
           <div className="resp-form-grid" style={{ marginBottom: 10 }}>
-            <div>
-              <label style={{ fontSize: 11, color: COLORS.muted, display: "block", marginBottom: 4 }}>Dictation Language</label>
-              <select value={listenLang} onChange={(e) => setListenLang(e.target.value)} style={{ width: "100%", padding: 8, fontSize: 13, background: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 4 }}>
-                <option value="en-IN">🇺🇸 English (en-IN)</option>
-                <option value="te-IN">🇮🇳 Telugu / తెలుగు</option>
-                <option value="hi-IN">🇮🇳 Hindi / हिन्दी</option>
-                <option value="ta-IN">🇮🇳 Tamil / தமிழ்</option>
-              </select>
-            </div>
+
             <div style={{ display: "flex", alignItems: "flex-end" }}>
               <button onClick={startListening} className={listening ? "pulse" : ""} style={{ padding: "8px 16px", fontSize: 13, background: listening ? COLORS.coral : COLORS.bg, border: `1px solid ${listening ? COLORS.coral : COLORS.border}`, color: listening ? "#fff" : COLORS.text, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 600, height: 35 }}>
                 {listening ? "🛑 Stop" : "🎤 Start Dictation"}
