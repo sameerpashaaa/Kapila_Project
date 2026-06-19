@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Pagination from "../../../components/Pagination";
 import ErrorMsg from "../../../components/ErrorMsg";
 import { COLORS } from "../../../styles/colors";
 import SourceBadge from "../../../components/SourceBadge";
 import KplCodeBadge from "../../../components/KplCodeBadge";
-import { Search, ChevronDown, ChevronUp, Eye, X } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, Eye, X, Download } from "lucide-react";
 import Btn from "../../../components/Btn";
 
 
@@ -50,6 +50,10 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
   const [sourceFilter, setSourceFilter] = useState("all");
   const [selectedIss, setSelectedIss] = useState(null);
 
+  useEffect(() => {
+    setIsExpanded(defaultExpanded);
+  }, [defaultExpanded]);
+
 
   const filteredItems = items.filter((iss) => {
     const matchesSearch =
@@ -64,6 +68,118 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
 
     return matchesSearch && matchesSource;
   });
+
+  const downloadSlip = (iss) => {
+    const escapeHtml = (unsafe) => {
+      return (unsafe || "").toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+
+    const formatSlipDate = (isoString) => {
+      try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+        return d.toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+      } catch {
+        return isoString;
+      }
+    };
+
+    const itemsHtml = (iss.items || [])
+      .map(it => {
+        const reqQty = it.qty !== null && it.qty !== undefined ? `${it.qty} ${it.unit || "kg"}` : "—";
+        const price = parseFloat(it.unit_price) || 0;
+        const total = (parseFloat(it.issued) || 0) * price;
+        return `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${escapeHtml(it.item_code || "N/A")}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">${escapeHtml(it.name)}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${escapeHtml(reqQty)}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold; color: #16a34a;">${escapeHtml(it.issued)} ${escapeHtml(it.unit || "kg")}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">₹${price.toFixed(2)}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;">₹${total.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join("");
+
+    const grandTotal = (iss.items || []).reduce((sum, it) => sum + (parseFloat(it.issued) || 0) * (parseFloat(it.unit_price) || 0), 0);
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Store Issuance Slip - ${escapeHtml(iss.dept)}</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+            .logo-container { background: #1E293B; border-radius: 8px; padding: 8px 20px; display: inline-flex; align-items: center; justify-content: center; }
+            .details { margin-bottom: 20px; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th { background: #f2f2f2; padding: 8px; text-align: left; border-bottom: 2px solid #ddd; }
+            .footer { text-align: center; font-size: 12px; color: #777; margin-top: 40px; border-top: 1px solid #ddd; padding-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo-container">
+              <img src="/kapila-logo.png" alt="Kapila" style="height: 32px; display: block;" />
+            </div>
+            <h3 style="margin: 6px 0 0; font-size: 16px; letter-spacing: 0.05em; color: #475569; text-transform: uppercase;">Store Issuance Slip</h3>
+            <span style="display:inline-block; margin-top:4px; padding: 3px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; background: #DCFCE7; color: #166534; border: 1px solid #86EFAC">✓ COMPLETED</span>
+          </div>
+          <div class="details">
+            <p><strong>Department:</strong> ${escapeHtml(iss.dept)}</p>
+            <p><strong>Date Issued:</strong> ${escapeHtml(formatSlipDate(iss.date))}</p>
+            <p><strong>Indent Reference:</strong> ${escapeHtml(iss.indent_id ? '#' + iss.indent_id : "Manual / Direct Issuance")}</p>
+            <p><strong>Source:</strong> ${escapeHtml(iss.scanned ? "Scanned Slip" : "Manual System Entry")}</p>
+            <p><strong>Printed At:</strong> ${new Date().toLocaleString()}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Item Name</th>
+                <th style="text-align: right;">Req. Qty</th>
+                <th style="text-align: right;">Issued Qty</th>
+                <th style="text-align: right;">Price</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+            <tfoot>
+              <tr style="border-top: 2px solid #333;">
+                <td colspan="5" style="padding: 12px 8px; text-align: right; font-weight: bold;">Grand Total:</td>
+                <td style="padding: 12px 8px; text-align: right; font-weight: bold; font-size: 15px;">₹${grandTotal.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="footer">
+            <p>Hotel Kapila Inventory Management System</p>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   return (
     <div
@@ -166,6 +282,7 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
                     <tr>
                       <TH>Date</TH>
                       <TH>Department</TH>
+                      <TH>Type</TH>
                       <TH>Items Issued</TH>
                       <TH>Issued Qty</TH>
                       <TH>Source</TH>
@@ -192,6 +309,23 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
                           </td>
                           <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 500, color: COLORS.text }}>
                             {iss.dept}
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            {(() => {
+                              const isAdhoc = (iss.indent_type || "routine") === "adhoc";
+                              return (
+                                <span style={{
+                                  display: "inline-flex", alignItems: "center", gap: 4,
+                                  padding: "2px 9px", borderRadius: 20, fontSize: 10, fontWeight: 700,
+                                  background: isAdhoc ? "#FEF3C7" : "#D1FAE5",
+                                  color: isAdhoc ? "#92400E" : "#065F46",
+                                  border: `1px solid ${isAdhoc ? "#FCD34D" : "#6EE7B7"}`,
+                                  whiteSpace: "nowrap",
+                                }}>
+                                  {isAdhoc ? "⚡ Ad-Hoc" : "✓ Routine"}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td style={{ padding: "12px 16px" }}>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -227,15 +361,24 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
                           <td style={{ padding: "12px 16px" }}>
                             <SourceBadge source={source} />
                           </td>
-                          <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                            <button
-                              onClick={() => setSelectedIss(iss)}
-                              style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}
-                              title="View details"
-                            >
-                              <Eye size={16} />
-                            </button>
-                          </td>
+                           <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                             <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+                               <button
+                                 onClick={() => setSelectedIss(iss)}
+                                 style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}
+                                 title="View details"
+                               >
+                                 <Eye size={16} />
+                               </button>
+                               <button
+                                 onClick={() => downloadSlip(iss)}
+                                 style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}
+                                 title="Download Slip"
+                               >
+                                 <Download size={16} />
+                               </button>
+                             </div>
+                           </td>
                         </tr>
                       );
                     })}
@@ -282,7 +425,7 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
 
             {/* Metadata Grid */}
             <div style={{ 
-              display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, 
+              display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, 
               padding: 16, background: COLORS.bg, borderRadius: 8, marginBottom: 20 
             }}>
               <div>
@@ -303,6 +446,12 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
                   {(selectedIss.items || []).length} items
                 </p>
               </div>
+              <div>
+                <p style={{ fontSize: 10, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Total Cost</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: COLORS.accent, marginTop: 2 }}>
+                  ₹{(selectedIss.items || []).reduce((sum, it) => sum + (parseFloat(it.issued) || 0) * (parseFloat(it.unit_price) || 0), 0).toFixed(2)}
+                </p>
+              </div>
             </div>
 
             {/* Items Table */}
@@ -314,31 +463,54 @@ export default function IssuanceHistory({ items, total, page, loading, error, on
                     <th style={{ padding: "8px 12px", textAlign: "left", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Item Name</th>
                     <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Req. Qty</th>
                     <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Issued Qty</th>
+                    <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Price</th>
+                    <th style={{ padding: "8px 12px", textAlign: "right", color: COLORS.muted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(selectedIss.items || []).map((it, idx) => (
-                    <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}22` }}>
-                      <td style={{ padding: "10px 12px", verticalAlign: "middle" }}>
-                        <KplCodeBadge code={it.item_code} />
-                      </td>
-                      <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500, verticalAlign: "middle" }}>
-                        {it.name}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.muted, verticalAlign: "middle" }}>
-                        {it.qty !== null && it.qty !== undefined ? `${it.qty} ${it.unit || "kg"}` : "—"}
-                      </td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.success, fontWeight: 600, verticalAlign: "middle" }}>
-                        {it.issued} {it.unit || "kg"}
-                      </td>
-                    </tr>
-                  ))}
+                  {(selectedIss.items || []).map((it, idx) => {
+                    const price = parseFloat(it.unit_price) || 0;
+                    const total = (parseFloat(it.issued) || 0) * price;
+                    return (
+                      <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}22` }}>
+                        <td style={{ padding: "10px 12px", verticalAlign: "middle" }}>
+                          <KplCodeBadge code={it.item_code} />
+                        </td>
+                        <td style={{ padding: "10px 12px", color: COLORS.text, fontWeight: 500, verticalAlign: "middle" }}>
+                          {it.name}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.muted, verticalAlign: "middle" }}>
+                          {it.qty !== null && it.qty !== undefined ? `${it.qty} ${it.unit || "kg"}` : "—"}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.success, fontWeight: 600, verticalAlign: "middle" }}>
+                          {it.issued} {it.unit || "kg"}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.muted, verticalAlign: "middle" }}>
+                          ₹{price.toFixed(2)}
+                        </td>
+                        <td style={{ padding: "10px 12px", textAlign: "right", color: COLORS.text, fontWeight: 600, verticalAlign: "middle" }}>
+                          ₹{total.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: `2px solid ${COLORS.border}` }}>
+                    <td colSpan={5} style={{ padding: "12px", textAlign: "right", fontWeight: 700, color: COLORS.text }}>Total Cost:</td>
+                    <td style={{ padding: "12px", textAlign: "right", fontWeight: 700, color: COLORS.accent }}>
+                      ₹{(selectedIss.items || []).reduce((sum, it) => sum + (parseFloat(it.issued) || 0) * (parseFloat(it.unit_price) || 0), 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
 
             {/* Modal Actions */}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, borderTop: `1px solid ${COLORS.border}`, paddingTop: 16 }}>
+              <Btn onClick={() => downloadSlip(selectedIss)} variant="secondary" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Download size={14} /> Download Slip
+              </Btn>
               <Btn onClick={() => setSelectedIss(null)} variant="ghost">Close</Btn>
             </div>
           </div>

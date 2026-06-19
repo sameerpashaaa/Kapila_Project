@@ -19,6 +19,7 @@ const schemas = {
   indent: z.object({
     dept: z.string().min(1).max(100),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    indent_type: z.enum(["routine", "adhoc"]).optional().default("routine"),
     items: z.array(z.object({ name: z.string().min(1), qty: z.number().positive(), unit: z.enum(UNITS), item_code: z.string().min(1).max(20) })).min(1),
   }),
   issuance: z.object({
@@ -32,6 +33,7 @@ const schemas = {
       issued: z.number().positive(),
       unit: z.enum(UNITS),
       item_code: z.string().min(1).max(20),
+      unit_price: z.number().nonnegative().optional().nullable(),
     })).min(1),
   }),
   production: z.object({

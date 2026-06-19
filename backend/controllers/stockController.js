@@ -352,22 +352,54 @@ async function reconcile(req, res, next) {
 async function getAvailableStock(req, res, next) {
   try {
     const { names } = req.query;
-    let query = db("stock")
-      .select("name")
-      .sum("remaining as available")
-      .groupBy("name");
-
+    let namesList = null;
     if (names) {
-      const namesList = Array.isArray(names)
+      namesList = Array.isArray(names)
         ? names
         : names.split(",").map((n) => n.trim());
-      query = query.whereIn(db.raw("LOWER(name)"), namesList.map((n) => n.toLowerCase()));
     }
 
-    const rows = await query;
+    // Sum remaining qty per item name
+    let qtyQuery = db("stock").select("name").sum("remaining as available").groupBy("name");
+    if (namesList) {
+      qtyQuery = qtyQuery.whereIn(db.raw("LOWER(name)"), namesList.map((n) => n.toLowerCase()));
+    }
+    const qtyRows = await qtyQuery;
+
+    // Get latest price for each item (most recent batch with remaining > 0, else any)
+    let priceQuery = db("stock")
+      .select("name", "price", "date", "created_at", "remaining")
+      .orderBy("date", "desc")
+      .orderBy("created_at", "desc");
+    if (namesList) {
+      priceQuery = priceQuery.whereIn(db.raw("LOWER(name)"), namesList.map((n) => n.toLowerCase()));
+    }
+    const priceRows = await priceQuery;
+
+    // For each item name, pick best price: prefer active batches, then most recent
+    const priceMap = {};
+    priceRows.forEach((r) => {
+      const key = r.name.toLowerCase();
+      if (!priceMap[key]) {
+        priceMap[key] = { price: parseFloat(r.price) || 0, hasActive: parseFloat(r.remaining) > 0 };
+      } else {
+        const currentHasActive = priceMap[key].hasActive;
+        const rowHasActive = parseFloat(r.remaining) > 0;
+        // Replace if: new row is active and current isn't, OR both same activity and new has price
+        if ((!currentHasActive && rowHasActive) || (currentHasActive === rowHasActive && parseFloat(r.price) > 0 && priceMap[key].price === 0)) {
+          priceMap[key] = { price: parseFloat(r.price) || 0, hasActive: rowHasActive };
+        }
+      }
+    });
+
     const formatted = {};
-    rows.forEach((r) => {
-      formatted[r.name.toLowerCase()] = parseFloat(r.available || 0);
+    qtyRows.forEach((r) => {
+      const key = r.name.toLowerCase();
+      formatted[key] = {
+        available: parseFloat(r.available || 0),
+        price: priceMap[key]?.price || 0,
+        name: r.name,
+      };
     });
 
     res.json({ success: true, data: formatted });
@@ -375,5 +407,6 @@ async function getAvailableStock(req, res, next) {
     next(err);
   }
 }
+
 
 module.exports = { list, create, update, remove, getLedger, getInsights, reconcile, getAvailableStock };

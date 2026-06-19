@@ -6,6 +6,7 @@ export default function IssuanceTopSection({
   pendingIndents, selectedIndent, onSelectIndent, onIssue,
   issueQtys, availableStock, onQtyChange, onShowHistory,
   confirmedItems, onToggleConfirm, isMobile = false,
+  stocks, getItemPrice,
 }) {
   if (selectedIndent) {
     return (
@@ -15,7 +16,7 @@ export default function IssuanceTopSection({
           availableStock={availableStock} onQtyChange={onQtyChange}
           confirmedItems={confirmedItems} onToggleConfirm={onToggleConfirm}
           onIssue={onIssue} onSelectIndent={onSelectIndent}
-          isMobile={isMobile}
+          isMobile={isMobile} stocks={stocks} getItemPrice={getItemPrice}
         />
       </div>
     );
@@ -55,7 +56,7 @@ export default function IssuanceTopSection({
           availableStock={availableStock} onQtyChange={onQtyChange}
           confirmedItems={confirmedItems} onToggleConfirm={onToggleConfirm}
           onIssue={onIssue} onSelectIndent={onSelectIndent}
-          isMobile={false}
+          isMobile={false} stocks={stocks} getItemPrice={getItemPrice}
         />
       </div>
     </div>

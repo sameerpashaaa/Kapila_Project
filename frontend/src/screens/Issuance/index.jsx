@@ -17,7 +17,7 @@ const LIMIT = 20;
 
 export default function StoreIssuancePage() {
   const { roles } = useAuth();
-  const { setCurrentScreen, setNavBlocker } = useAppContext();
+  const { setCurrentScreen, setNavBlocker, stocks = [], refreshStockNames } = useAppContext();
   const { isMobile } = useBreakpoint();
   const isStoreManager = roles.some((r) => r.key === "store_manager");
 
@@ -25,6 +25,7 @@ export default function StoreIssuancePage() {
   const [selectedIndent, setSelectedIndent] = useState(null);
   const [issueQtys, setIssueQtys] = useState({});
   const [availableStock, setAvailableStock] = useState({});
+  const [stockPrices, setStockPrices] = useState({});  // name.lower() → price from DB
   const [confirmedItems, setConfirmedItems] = useState(new Set());
   
   const pendingIssueRef = useRef(new Map());
@@ -45,6 +46,7 @@ export default function StoreIssuancePage() {
     api.indents.list({ status: "pending", limit: 100 }).then((r) => {
       if (r.success) setPendingIndents(r.data);
     });
+    refreshStockNames();
   }, []);
 
   const autoIssue = useCallback(async () => {
@@ -108,17 +110,65 @@ export default function StoreIssuancePage() {
     ind.items.forEach((it, i) => { q[i] = it.qty; });
     setIssueQtys(q);
     setAvailableStock({});
+    setStockPrices({});
     
     try {
       const itemNames = ind.items.map(it => it.name);
       const res = await api.stock.available(itemNames);
       if (res.success) {
-        setAvailableStock(res.data);
+        // New shape: { name_lower: { available, price, name } }
+        // Build availableStock as { name_lower: qty } for backwards compat
+        // Build stockPrices as { name_lower: price } for price display
+        const avail = {};
+        const prices = {};
+        Object.entries(res.data).forEach(([key, val]) => {
+          if (typeof val === "object" && val !== null) {
+            avail[key] = val.available;
+            if (val.price > 0) prices[key] = val.price;
+          } else {
+            // backwards compat if backend not updated yet
+            avail[key] = val;
+          }
+        });
+        setAvailableStock(avail);
+        setStockPrices(prices);
       }
     } catch (e) {
       console.error("Failed to check stock availability:", e);
     }
   };
+
+  const getItemPrice = useCallback((itemName) => {
+    if (!itemName) return 0;
+    const nameLower = itemName.toLowerCase().trim();
+
+    // Pass 0: use DB price from the available endpoint (most authoritative — direct DB query)
+    if (stockPrices[nameLower] > 0) return stockPrices[nameLower];
+
+    // Pass 1: exact case-insensitive match against cached stocks context
+    let matches = (stocks || []).filter(s => s.name?.toLowerCase().trim() === nameLower);
+
+    // Pass 2: fuzzy — stock name contains query OR query contains stock name
+    // Handles "Maida / मैदा" → "MAIDA", "VANILLA ICECREAM" → "VANILLA ICE CREAM", etc.
+    if (matches.length === 0) {
+      matches = (stocks || []).filter(s => {
+        const sName = s.name?.toLowerCase().trim() || "";
+        return sName.includes(nameLower) || nameLower.includes(sName);
+      });
+      if (matches.length > 1) {
+        matches = [...matches].sort((a, b) =>
+          Math.abs(a.name.length - itemName.length) - Math.abs(b.name.length - itemName.length)
+        );
+      }
+    }
+
+    if (matches.length === 0) return 0;
+    const active = matches.filter(s => parseFloat(s.remaining) > 0);
+    const target = active.length > 0 ? active : matches;
+    const sorted = [...target].sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at));
+    return parseFloat(sorted[0].price) || 0;
+  }, [stocks, stockPrices]);
+
 
   const handleQtyChange = (idx, value) => {
     setIssueQtys(prev => ({ ...prev, [idx]: value }));
@@ -140,6 +190,7 @@ export default function StoreIssuancePage() {
         issued: parseFloat(issueQtys[idx] ?? item.qty),
         unit: item.unit || "kg",
         item_code: item.item_code,
+        unit_price: getItemPrice(item.name),
       });
     }
   };
@@ -317,7 +368,7 @@ export default function StoreIssuancePage() {
                 onIssue={handleIssue} issueQtys={issueQtys} availableStock={availableStock}
                 onQtyChange={handleQtyChange} onShowHistory={() => setIsHistoryOpen(true)}
                 confirmedItems={confirmedItems} onToggleConfirm={handleToggleConfirm}
-                isMobile={isMobile}
+                isMobile={isMobile} stocks={stocks} getItemPrice={getItemPrice}
               />
             </div>
             
@@ -358,6 +409,8 @@ export default function StoreIssuancePage() {
             onShowHistory={() => setIsHistoryOpen(true)}
             confirmedItems={confirmedItems}
             onToggleConfirm={handleToggleConfirm}
+            stocks={stocks}
+            getItemPrice={getItemPrice}
           />
           
           <IssuanceHistory 

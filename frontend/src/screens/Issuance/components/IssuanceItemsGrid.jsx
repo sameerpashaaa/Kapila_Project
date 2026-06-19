@@ -17,6 +17,7 @@ export default function IssuanceItemsGrid({
   selectedIndent, issueQtys, availableStock, onQtyChange,
   confirmedItems = new Set(), onToggleConfirm = () => {},
   onIssue, onSelectIndent, isMobile = false,
+  stocks, getItemPrice,
 }) {
   const items = selectedIndent?.items || [];
   const totalItems = items.length;
@@ -41,11 +42,27 @@ export default function IssuanceItemsGrid({
       {/* Header */}
       {selectedIndent && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #e2e8f0", backgroundColor: "#ffffff", flexShrink: 0 }}>
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, color: COLORS.text }}>
               {selectedIndent.dept}
             </span>
-            <span style={{ fontSize: 11, color: COLORS.muted, marginLeft: 8 }}>{selectedIndent.date}</span>
+            <span style={{ fontSize: 11, color: COLORS.muted }}>{selectedIndent.date}</span>
+            {(() => {
+              const isAdhoc = (selectedIndent.indent_type || "routine") === "adhoc";
+              return (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  padding: "2px 10px", borderRadius: 20,
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.03em",
+                  background: isAdhoc ? "#FEF3C7" : "#D1FAE5",
+                  color: isAdhoc ? "#92400E" : "#065F46",
+                  border: `1px solid ${isAdhoc ? "#FCD34D" : "#6EE7B7"}`,
+                  whiteSpace: "nowrap",
+                }}>
+                  {isAdhoc ? "⚡ Ad-Hoc" : "✓ Routine"}
+                </span>
+              );
+            })()}
           </div>
           {onSelectIndent && (
             <button
@@ -74,6 +91,7 @@ export default function IssuanceItemsGrid({
               const issueQty  = parseFloat(issueQtys[idx] ?? it.qty) || 0;
               const isLow     = available < issueQty;
               const isConf    = confirmedItems.has(idx);
+              const unitPrice = getItemPrice ? getItemPrice(it.name) : 0;
 
               return (
                 <div key={idx} style={{
@@ -87,6 +105,9 @@ export default function IssuanceItemsGrid({
                       <span style={{ fontSize: 9, color: COLORS.accent, display: "block", fontWeight: 700, marginBottom: 2, letterSpacing: "0.05em" }}>{it.item_code || "KPL"}</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, display: "block" }}>{it.name}</span>
                       <span style={{ fontSize: 11, color: COLORS.muted }}>{it.unit || "kg"} · Requested: {it.qty}</span>
+                      <span style={{ fontSize: 11, color: COLORS.muted, display: "block", marginTop: 2 }}>
+                        Price: ₹{unitPrice.toFixed(2)} | Cost: ₹{(issueQty * unitPrice).toFixed(2)}
+                      </span>
                     </div>
                     <button
                       onClick={() => onToggleConfirm(idx)}
@@ -141,6 +162,8 @@ export default function IssuanceItemsGrid({
                 <TH style={{ width: 70 }}>QTY</TH>
                 <TH style={{ width: 100 }}>Issue QTY</TH>
                 <TH style={{ width: 70 }}>Unit</TH>
+                <TH style={{ width: 80 }}>Price</TH>
+                <TH style={{ width: 90 }}>Cost</TH>
                 <TH style={{ width: 80, textAlign: "center" }}>
                   <CheckSquare size={12} style={{ display: "inline-block", verticalAlign: "middle" }} />
                 </TH>
@@ -151,11 +174,13 @@ export default function IssuanceItemsGrid({
               {items.map((it, idx) => {
                 const available = parseFloat(availableStock[it.name?.toLowerCase()]) || 0;
                 const issueQty = issueQtys[idx] ?? it.qty;
+                const unitPrice = getItemPrice ? getItemPrice(it.name) : 0;
                 return (
                   <IssuanceItemRow
                     key={idx} idx={idx} item={it} available={available}
                     issueQty={issueQty} onQtyChange={onQtyChange}
                     isConfirmed={confirmedItems.has(idx)} onToggleConfirm={onToggleConfirm}
+                    unitPrice={unitPrice}
                   />
                 );
               })}
@@ -169,6 +194,9 @@ export default function IssuanceItemsGrid({
         {needAttentionCount > 0 && (
           <span style={{ color: "#ef4444", fontWeight: 600 }}>⚠ {needAttentionCount} need attention</span>
         )}
+        <span style={{ color: COLORS.muted, fontWeight: 500 }}>
+          Total Cost: <strong style={{ color: COLORS.text }}>₹{items.reduce((sum, it, idx) => sum + (parseFloat(issueQtys[idx] ?? it.qty) || 0) * (getItemPrice ? getItemPrice(it.name) : 0), 0).toFixed(2)}</strong>
+        </span>
         <span style={{ color: COLORS.muted, fontWeight: 500 }}>
           Total items: <strong style={{ color: COLORS.text }}>{totalItems}</strong>
         </span>

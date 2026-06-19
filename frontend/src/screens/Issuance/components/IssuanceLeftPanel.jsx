@@ -144,6 +144,25 @@ export default function IssuanceLeftPanel({
             <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, margin: 0 }}>{selected.dept}</p>
           </div>
 
+          {/* Indent Type Badge */}
+          <div style={{ marginBottom: 12 }}>
+            <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 6 }}>Indent Type</p>
+            {(() => {
+              const isAdhoc = (selected.indent_type || "routine") === "adhoc";
+              return (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
+                  background: isAdhoc ? "#FEF3C7" : "#D1FAE5",
+                  color: isAdhoc ? "#92400E" : "#065F46",
+                  border: `1px solid ${isAdhoc ? "#FCD34D" : "#6EE7B7"}`,
+                }}>
+                  {isAdhoc ? "⚡ Ad-Hoc (Emergency)" : "✓ Routine"}
+                </span>
+              );
+            })()}
+          </div>
+
           {/* Date Needed */}
           <div style={{ marginBottom: 12 }}>
             <p style={{ fontSize: 11, color: COLORS.muted, marginBottom: 4 }}>Date Needed</p>

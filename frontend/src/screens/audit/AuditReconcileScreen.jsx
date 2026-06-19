@@ -15,6 +15,7 @@ export default function AuditReconcileScreen({ auditId, onBack, onComplete }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
   
   // Success state after finalising
   const [finalisedData, setFinalisedData] = useState(null);
@@ -232,6 +233,39 @@ export default function AuditReconcileScreen({ auditId, onBack, onComplete }) {
   const shortages = items.filter(it => parseFloat(it.difference || 0) < -0.0001).length;
   const surpluses = items.filter(it => parseFloat(it.difference || 0) > 0.0001).length;
 
+  const getIsDiscrepant = (it) => {
+    const dbVal = parseFloat(it.db_qty);
+    const physVal = parseFloat(it.physical_qty || 0);
+    const diff = physVal - dbVal;
+    return Math.abs(diff) > 0.0001;
+  };
+
+  const sortedItems = [...items].sort((a, b) => {
+    const aDisc = getIsDiscrepant(a);
+    const bDisc = getIsDiscrepant(b);
+    if (aDisc && !bDisc) return -1;
+    if (!aDisc && bDisc) return 1;
+    return 0;
+  });
+
+  const displayedItems = sortedItems.filter(it => {
+    const dbVal = parseFloat(it.db_qty);
+    const physVal = parseFloat(it.physical_qty || 0);
+    const diff = physVal - dbVal;
+    const isDiscrepant = Math.abs(diff) > 0.0001;
+
+    if (activeFilter === "matched") {
+      return !isDiscrepant;
+    }
+    if (activeFilter === "shortages") {
+      return isDiscrepant && diff < 0;
+    }
+    if (activeFilter === "surpluses") {
+      return isDiscrepant && diff > 0;
+    }
+    return true;
+  });
+
   return (
     <Section 
       title={`Audit Reconciliation: ${audit.reference}`} 
@@ -256,16 +290,36 @@ export default function AuditReconcileScreen({ auditId, onBack, onComplete }) {
         {/* Summary Cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           {[
-            { label: "Total Items", value: total, color: COLORS.text, bg: COLORS.surface },
-            { label: "Matched", value: matched, color: COLORS.success, bg: "#ecfdf5" },
-            { label: "Shortages", value: shortages, color: COLORS.danger, bg: "#fef2f2" },
-            { label: "Surpluses", value: surpluses, color: COLORS.warning, bg: "#fef3c7" }
-          ].map((card) => (
-            <Card key={card.label} style={{ background: card.bg, padding: 14, display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{card.label}</span>
-              <span style={{ fontSize: 22, fontWeight: 700, color: card.color }}>{card.value}</span>
-            </Card>
-          ))}
+            { key: "all", label: "Total Items", value: total, color: COLORS.text, bg: COLORS.surface, activeColor: "#e8a838" },
+            { key: "matched", label: "Matched", value: matched, color: COLORS.success, bg: "#ecfdf5", activeColor: COLORS.success },
+            { key: "shortages", label: "Shortages", value: shortages, color: COLORS.danger, bg: "#fef2f2", activeColor: COLORS.danger },
+            { key: "surpluses", label: "Surpluses", value: surpluses, color: COLORS.warning, bg: "#fef3c7", activeColor: COLORS.warning }
+          ].map((card) => {
+            const isActive = activeFilter === card.key;
+            return (
+              <Card 
+                key={card.label} 
+                onClick={() => setActiveFilter(card.key)}
+                style={{ 
+                  background: card.bg, 
+                  padding: 14, 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: 4,
+                  cursor: "pointer",
+                  border: isActive ? `1px solid ${card.activeColor}` : `1px solid ${COLORS.border}`,
+                  boxShadow: isActive 
+                    ? `0 0 0 2px ${card.activeColor}33, 0 4px 12px rgba(0, 0, 0, 0.08)` 
+                    : "0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)",
+                  transform: isActive ? "translateY(-2px)" : "none",
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                }}
+              >
+                <span style={{ fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{card.label}</span>
+                <span style={{ fontSize: 22, fontWeight: 700, color: card.color }}>{card.value}</span>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Discrepancy Reconciliation Table */}
@@ -290,7 +344,7 @@ export default function AuditReconcileScreen({ auditId, onBack, onComplete }) {
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => {
+                {displayedItems.map((it) => {
                   const dbVal = parseFloat(it.db_qty);
                   const physVal = parseFloat(it.physical_qty || 0);
                   const diff = physVal - dbVal;

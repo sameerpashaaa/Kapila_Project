@@ -54,7 +54,9 @@ import { today } from "../../utils/dates";
 const LIMIT = 20;
 
 // ── ITEM NAME COMBOBOX ────────────────────────────────────────────────────────
-function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange, onSelect }) {
+// deptItems = ALL stock names (for search)
+// deptJsonItems = dept-specific names (shown at top of results, highlighted)
+function ItemNameCombobox({ value, dept, deptItems, deptJsonItems = [], stocks = [], autoFocus, onChange, onSelect }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value || "");
   const [highlighted, setHighlighted] = useState(0);
@@ -75,10 +77,16 @@ function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange,
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Build filtered list: all matching query, prioritizing dept items if applicable
   const filtered = (() => {
     if (!dept) return [];
-    const q = query.trim().toLowerCase();
-    return deptItems.filter(name => !q || name.toLowerCase().includes(q));
+    const q = String(query).trim().toLowerCase();
+    const deptSet = new Set((deptJsonItems || []).map(n => String(n).toLowerCase()));
+    const matching = (deptItems || []).filter(name => !q || String(name).toLowerCase().includes(q));
+    // Dept items to top
+    const deptMatches = matching.filter(n => deptSet.has(String(n).toLowerCase()));
+    const otherMatches = matching.filter(n => !deptSet.has(String(n).toLowerCase()));
+    return [...deptMatches, ...otherMatches].slice(0, 60);
   })();
 
   const handleKey = (e) => {
@@ -104,7 +112,6 @@ function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange,
   };
 
   const handleBlur = () => {
-    // Small delay so mousedown on option fires first
     setTimeout(() => setOpen(false), 120);
   };
 
@@ -113,6 +120,8 @@ function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange,
     setQuery(name);
     setOpen(false);
   };
+
+  const deptSet = new Set((deptJsonItems || []).map(n => String(n).toLowerCase()));
 
   return (
     <div className="item-combobox-wrap" ref={wrapRef}>
@@ -132,10 +141,11 @@ function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange,
           {!dept ? (
             <div className="item-combobox-empty">Please select a department first</div>
           ) : filtered.length === 0 ? (
-            <div className="item-combobox-empty">No items found for this department</div>
+            <div className="item-combobox-empty">No items found</div>
           ) : (
             filtered.map((name, i) => {
-              const stockMatch = stocks.find(s => s.name.toLowerCase() === name.toLowerCase());
+              const stockMatch = stocks.find(s => String(s.name).toLowerCase() === String(name).toLowerCase());
+              const isDeptItem = deptSet.has(String(name).toLowerCase());
               return (
                 <div
                   key={name}
@@ -143,10 +153,15 @@ function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange,
                   onMouseDown={() => handleSelect(name)}
                   onMouseEnter={() => setHighlighted(i)}
                 >
-                  <span style={{ fontWeight: 500, color: "#111827" }}>{name}</span>
-                  {stockMatch && (
-                    <span style={{ fontSize: 11, color: "#6B7280", fontFamily: "monospace" }}>{stockMatch.item_code}</span>
-                  )}
+                  <span style={{ fontWeight: 500, color: "#111827", flex: 1 }}>{name}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                    {isDeptItem && (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: "#15803D", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 4, padding: "1px 5px", letterSpacing: "0.04em" }}>DEPT</span>
+                    )}
+                    {stockMatch && (
+                      <span style={{ fontSize: 11, color: "#6B7280", fontFamily: "monospace" }}>{stockMatch.item_code}</span>
+                    )}
+                  </span>
                 </div>
               );
             })
@@ -159,7 +174,7 @@ function ItemNameCombobox({ value, dept, deptItems, stocks, autoFocus, onChange,
 
 
 export default function IndentScreen() {
-  const { stockNames, stocks, indentPreFill, setIndentPreFill, setCurrentScreen } = useAppContext();
+  const { stockNames, stocks = [], indentPreFill, setIndentPreFill, setCurrentScreen } = useAppContext();
   const { roles } = useAuth();
   const isChef = roles.some((r) => r.key === "chef");
   const [deptsList, setDeptsList] = useState([]);
@@ -170,7 +185,7 @@ export default function IndentScreen() {
   // Local speech-to-text (Whisper Tiny — no Google, no internet)
   const { listening, statusMsg: speechStatus, startRecording, stopRecording } = useLocalSpeech();
   
-  const [form, setForm] = useState({ dept: "", date: today(), items: [{ id: Date.now(), name: "", qty: "", unit: "kg", item_code: "", notes: "" }] });
+  const [form, setForm] = useState({ dept: "", date: today(), indent_type: "routine", items: [{ id: Date.now(), name: "", qty: "", unit: "kg", item_code: "", notes: "" }] });
   const [activeRowIdx, setActiveRowIdx] = useState(0);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
   const [msg, setMsg]   = useState("");
@@ -184,13 +199,15 @@ export default function IndentScreen() {
   const [selectedItems, setSelectedItems] = useState({});
   const [activeCategory, setActiveCategory] = useState("All");
   const [historySearch, setHistorySearch] = useState("");
-
   const uniqueStockItems = [];
   const seenNames = new Set();
-  stocks.forEach(s => {
-    if (!seenNames.has(s.name.toLowerCase())) {
-      seenNames.add(s.name.toLowerCase());
-      uniqueStockItems.push(s);
+  (stocks || []).forEach(s => {
+    if (s && s.name) {
+      const nameLower = s.name.toLowerCase();
+      if (!seenNames.has(nameLower)) {
+        seenNames.add(nameLower);
+        uniqueStockItems.push(s);
+      }
     }
   });
 
@@ -204,26 +221,18 @@ export default function IndentScreen() {
     return "Others";
   };
 
-  // Filter items based on selected department's Excel items
+  // ALL unique stock items — used by combobox search and multi-select modal
+  const allStockNames = uniqueStockItems.map(s => s.name);
+
+  // Unify the whole stock master: all items available for all departments
   const getFilteredStockItems = () => {
-    if (!form.dept) return uniqueStockItems;
-    const currentDeptItems = deptItemsMap[form.dept] || deptItemsMap[form.dept.toUpperCase()] || [];
-    if (currentDeptItems.length === 0) {
-      return uniqueStockItems;
-    }
-    return uniqueStockItems.filter(s => {
-      return currentDeptItems.some(name => {
-        const cleanName = name.toLowerCase().trim();
-        const cleanStockName = s.name.toLowerCase().trim();
-        return cleanStockName === cleanName || cleanStockName.includes(cleanName) || cleanName.includes(cleanStockName);
-      });
-    });
+    return uniqueStockItems;
   };
 
-  const filteredStockItems = getFilteredStockItems();
-  const filteredStockNames = filteredStockItems.map(s => s.name);
+  const filteredStockItems = getFilteredStockItems(); 
+  const filteredStockNames = filteredStockItems.map(s => s.name); 
 
-  // Get department items from JSON (plain strings) for suggestions + combobox
+  // Get department items from JSON (plain strings) — used ONLY for Quick Add suggestion chips
   const deptJsonItems = form.dept
     ? (deptItemsMap[form.dept] || deptItemsMap[form.dept.toUpperCase()] || [])
     : [];
@@ -693,7 +702,7 @@ export default function IndentScreen() {
       const cleanName = item.name.toLowerCase();
       if (cleanName.length < 2) return;
 
-      const matched = filteredStockItems.find(s => 
+      const matched = uniqueStockItems.find(s => 
         s.name.toLowerCase().includes(cleanName) || cleanName.includes(s.name.toLowerCase())
       );
 
@@ -731,8 +740,9 @@ export default function IndentScreen() {
       .filter(i => i.name && i.qty)
       .map(i => `• ${i.name}: ${i.qty} ${i.unit || "kg"}`)
       .join("\n");
-    
+    const typeLabel = form.indent_type === "adhoc" ? "Ad-Hoc (Emergency)" : "Routine (Nightly)";
     return `*KAPILA INVENTORY - INDENT REQUEST*\n` +
+           `*Type:* ${typeLabel}\n` +
            `*Department:* ${form.dept}\n` +
            `*Date Needed:* ${form.date}\n\n` +
            `*Items Requested:*\n${itemsText}`;
@@ -783,7 +793,8 @@ export default function IndentScreen() {
             <div class="logo-container">
               <img src="/kapila-logo.png" alt="Kapila" style="height: 32px; display: block;" />
             </div>
-            <h3 style="margin: 6px 0 0; font-size: 16px; letter-spacing: 0.05em; color: #475569; text-transform: uppercase;">Nightly Indent Slip</h3>
+            <h3 style="margin: 6px 0 0; font-size: 16px; letter-spacing: 0.05em; color: #475569; text-transform: uppercase;">Indent Slip</h3>
+            <span style="display:inline-block; margin-top:4px; padding: 3px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; background: ${form.indent_type === 'adhoc' ? '#FEF3C7' : '#DCFCE7'}; color: ${form.indent_type === 'adhoc' ? '#92400E' : '#166534'}; border: 1px solid ${form.indent_type === 'adhoc' ? '#FCD34D' : '#86EFAC'}">${form.indent_type === 'adhoc' ? '⚡ AD-HOC INDENT' : '✓ ROUTINE INDENT'}</span>
           </div>
           <div class="details">
             <p><strong>Department:</strong> ${escapeHtml(form.dept)}</p>
@@ -821,9 +832,9 @@ export default function IndentScreen() {
     const validItems = form.items.filter((i) => i.name && i.qty);
     if (!validItems.length) return;
     try {
-      await api.indents.create({ ...form, items: validItems.map((i) => ({ ...i, qty: parseFloat(i.qty), unit: i.unit || "kg", item_code: i.item_code || "KPL-NEW" })) });
+      await api.indents.create({ ...form, indent_type: form.indent_type || "routine", items: validItems.map((i) => ({ ...i, qty: parseFloat(i.qty), unit: i.unit || "kg", item_code: i.item_code || "KPL-NEW" })) });
       localStorage.removeItem("kapila_indent_draft");
-      setForm({ dept: deptsList[0]?.name || "", date: today(), items: [{ name: "", qty: "", unit: "kg", item_code: "" }] });
+      setForm({ dept: deptsList[0]?.name || "", date: today(), indent_type: "routine", items: [{ name: "", qty: "", unit: "kg", item_code: "" }] });
       setMsg("Indent submitted ✓");
       setTimeout(() => setMsg(""), 2000);
       load({ page: 1 });
@@ -861,6 +872,46 @@ export default function IndentScreen() {
                   Date Needed
                 </label>
                 <input className="indent-field" type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+              </div>
+
+              {/* Indent Type Toggle */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ fontSize: "12px", color: "#475569", marginBottom: "8px", display: "block", fontWeight: 500 }}>
+                  Indent Type
+                </label>
+                <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: "1px solid #E2E8F0", background: "#F8FAFC" }}>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, indent_type: "routine" }))}
+                    style={{
+                      flex: 1, padding: "9px 0", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                      transition: "all 0.18s",
+                      background: form.indent_type === "routine" ? "#1e293b" : "transparent",
+                      color: form.indent_type === "routine" ? "#ffffff" : "#64748b",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>✓</span> Routine
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, indent_type: "adhoc" }))}
+                    style={{
+                      flex: 1, padding: "9px 0", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                      transition: "all 0.18s",
+                      background: form.indent_type === "adhoc" ? "#d97706" : "transparent",
+                      color: form.indent_type === "adhoc" ? "#ffffff" : "#64748b",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>⚡</span> Ad-Hoc
+                  </button>
+                </div>
+                <p style={{ fontSize: 11, color: form.indent_type === "adhoc" ? "#92400E" : "#64748b", marginTop: 6, background: form.indent_type === "adhoc" ? "#FEF3C7" : "#F1F5F9", borderRadius: 6, padding: "5px 8px" }}>
+                  {form.indent_type === "adhoc"
+                    ? "⚡ Emergency indent — stock is critically low or exhausted."
+                    : "✓ Regular nightly indent for tomorrow's service."}
+                </p>
               </div>
 
               {/* Quick Add Suggestions — sourced from department_items.json */}
@@ -982,9 +1033,10 @@ export default function IndentScreen() {
                     ) : (
                       form.items.map((item, idx) => {
                         const cleanName = item.name.toLowerCase().trim();
-                        const avail = availableStock[cleanName];
-                        const isStockCheckActive = item.name && avail !== undefined;
-                        const isLowStock = isStockCheckActive && avail < (parseFloat(item.qty) || 0);
+                        const availObj = availableStock[cleanName];
+                        const avail = availObj?.available ?? availObj;
+                        const isStockCheckActive = item.name && avail !== undefined && avail !== null;
+                        const isLowStock = isStockCheckActive && Number(avail) < (parseFloat(item.qty) || 0);
                         const isNewItem = item.item_code === "KPL-NEW" || !item.item_code;
                         const isActive = activeRowIdx === idx;
                         const isQtyMissing = item.qtyMissing || (item.qty === "" && item.name);
@@ -1001,7 +1053,8 @@ export default function IndentScreen() {
                               <ItemNameCombobox
                                 value={item.name}
                                 dept={form.dept}
-                                deptItems={deptJsonItems}
+                                deptItems={allStockNames}
+                                deptJsonItems={deptJsonItems}
                                 stocks={stocks}
                                 autoFocus={isActive}
                                 onChange={(val) => updateItem(idx, "name", val)}
@@ -1030,7 +1083,7 @@ export default function IndentScreen() {
                             <td>
                               {isStockCheckActive ? (
                                 <span className={`stock-cell ${isLowStock ? 'low' : 'ok'}`}>
-                                  {avail}
+                                  {Number(avail).toFixed(2)}
                                 </span>
                               ) : <span style={{ color: "#cbd5e1" }}>-</span>}
                             </td>
@@ -1113,15 +1166,17 @@ export default function IndentScreen() {
                     <div className="resp-table-wrap">
                       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                         <colgroup>
-                          <col style={{ width: "22%" }} />
-                          <col style={{ width: "16%" }} />
-                          <col style={{ width: "46%" }} />
+                          <col style={{ width: "20%" }} />
+                          <col style={{ width: "10%" }} />
+                          <col style={{ width: "13%" }} />
+                          <col style={{ width: "41%" }} />
                           <col style={{ width: "16%" }} />
                         </colgroup>
                         <thead>
                           <tr style={{ background: "#F9FAFB" }}>
                             <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DEPARTMENT</th>
-                            <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DATE NEEDED</th>
+                            <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>DATE</th>
+                            <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>TYPE</th>
                             <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>ITEMS</th>
                             <th style={{ fontSize: "11px", fontWeight: 500, color: "#6B7280", textAlign: "right", padding: "8px 10px", borderBottom: "1px solid #E5E7EB", letterSpacing: "0.04em", textTransform: "uppercase" }}>STATUS</th>
                           </tr>
@@ -1139,10 +1194,23 @@ export default function IndentScreen() {
                           ) : (
                             items.map((ind) => {
                               const statusInfo = getStatusStyleAndText(ind.status);
+                              const isAdhoc = (ind.indent_type || "routine") === "adhoc";
                               return (
                                 <tr key={ind.id} className="history-table-row">
                                   <td style={{ padding: "10px 8px", verticalAlign: "middle" }}><span style={{ fontWeight: 500, fontSize: "13px", color: "#111827" }}>{cleanDeptName(ind.dept)}</span></td>
                                   <td style={{ padding: "10px 8px", verticalAlign: "middle" }}><span style={{ fontSize: "12px", color: "#6B7280", whiteSpace: "nowrap" }}>{formatDate(ind.date)}</span></td>
+                                  <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
+                                    <span style={{
+                                      display: "inline-flex", alignItems: "center", gap: 3,
+                                      padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700,
+                                      background: isAdhoc ? "#FEF3C7" : "#D1FAE5",
+                                      color: isAdhoc ? "#92400E" : "#065F46",
+                                      border: `1px solid ${isAdhoc ? "#FCD34D" : "#6EE7B7"}`,
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                      {isAdhoc ? "⚡ Ad-Hoc" : "✓ Routine"}
+                                    </span>
+                                  </td>
                                   <td style={{ padding: "10px 8px", verticalAlign: "middle" }}>
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
                                       {(ind.items || []).map((it, i) => (
@@ -1186,7 +1254,7 @@ export default function IndentScreen() {
                 ))}
               </div>
               <div style={{ flex: 1, overflowY: "auto", marginBottom: 16, display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, paddingRight: 6 }}>
-                {filteredStockItems.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).filter(s => activeCategory === "All" || getItemCategory(s.name) === activeCategory).map((s) => {
+                {uniqueStockItems.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).filter(s => activeCategory === "All" || getItemCategory(s.name) === activeCategory).map((s) => {
                   const isChecked = !!selectedItems[s.name];
                   return (
                     <label key={s.item_code} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: isChecked ? COLORS.accent + "11" : COLORS.bg + "44", border: `1px solid ${isChecked ? COLORS.accent + "44" : COLORS.border + "44"}`, borderRadius: 6, cursor: "pointer", transition: "all 0.15s" }}>

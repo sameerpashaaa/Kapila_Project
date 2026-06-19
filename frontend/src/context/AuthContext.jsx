@@ -43,7 +43,11 @@ export function AuthProvider({ children }) {
     if (isReloadOrHistory && sessionStorage.getItem("kapila_active_session") === "true") {
       api.auth.refresh()
         .then((res) => applySession(res.data))
-        .catch(() => clearSession())
+        .catch(() => {
+          clearSession();
+          // Tell the backend to clear the stale httpOnly cookie so it doesn't keep arriving on every reload
+          fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+        })
         .finally(() => setLoading(false));
     } else {
       clearSession();

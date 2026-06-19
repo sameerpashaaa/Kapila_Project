@@ -26,7 +26,8 @@ async function list(req, res, next) {
     const listQuery = db("issuances").modify(filter);
     await applyDepartmentScope(listQuery, req.user, "issuances.dept");
     const issuances = await listQuery
-      .select("issuances.*")
+      .select("issuances.*", db.raw("COALESCE(indents.indent_type, 'routine') as indent_type"))
+      .leftJoin("indents", "issuances.indent_id", "indents.id")
       .orderBy(`issuances.${sort}`, order)
       .offset(offset).limit(limit);
 
@@ -41,6 +42,7 @@ async function list(req, res, next) {
     res.json({ success: true, data, total: parseInt(count), page: req.pagination.page, limit });
   } catch (err) { next(err); }
 }
+
 
 // POST /api/issuances  — atomic: create issuance + deduct stock + mark indent issued
 async function create(req, res, next) {
@@ -65,6 +67,7 @@ async function create(req, res, next) {
         issued: it.issued,
         unit: it.unit,
         item_code: it.item_code,
+        unit_price: parseFloat(it.unit_price) || 0.00,
       }));
       const savedItems = await trx("issuance_items").insert(issItems).returning("*");
 

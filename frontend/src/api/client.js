@@ -16,15 +16,24 @@ async function parseJson(res) {
   return res.json();
 }
 
+let refreshPromise = null;
 async function refreshAccessToken() {
-  const res = await fetch(absoluteUrl("/auth/refresh"), {
-    method: "POST",
-    credentials: "include",
-  });
-  const json = await parseJson(res);
-  if (!json.success) throw new Error(json.error || "Session refresh failed");
-  setAccessToken(json.data.accessToken);
-  return json.data;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(absoluteUrl("/auth/refresh"), {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = await parseJson(res);
+      if (!json.success) throw new Error(json.error || "Session refresh failed");
+      setAccessToken(json.data.accessToken);
+      return json.data;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
 }
 
 async function request(method, path, body, params, didRetry = false) {

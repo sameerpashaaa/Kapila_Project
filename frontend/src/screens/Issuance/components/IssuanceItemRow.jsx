@@ -10,6 +10,7 @@ export default function IssuanceItemRow({
   onQtyChange,
   isConfirmed = false,
   onToggleConfirm = () => {},
+  unitPrice = 0,
 }) {
   const numQty = parseFloat(issueQty) || 0;
   const numAvail = parseFloat(available) || 0;
@@ -113,6 +114,16 @@ export default function IssuanceItemRow({
       {/* UNIT */}
       <td style={tdStyle({ width: 70, color: COLORS.muted })}>
         {item.unit || "kg"}
+      </td>
+
+      {/* PRICE */}
+      <td style={tdStyle({ width: 80, color: COLORS.muted })}>
+        ₹{unitPrice.toFixed(2)}
+      </td>
+
+      {/* COST */}
+      <td style={tdStyle({ width: 90, fontWeight: 600, color: COLORS.accent })}>
+        ₹{(numQty * unitPrice).toFixed(2)}
       </td>
 
       {/* ✓ (CONFIRMED) CHECKBOX */}

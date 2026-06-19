@@ -42,7 +42,7 @@ async function list(req, res, next) {
 // POST /api/indents
 async function create(req, res, next) {
   try {
-    const { dept, date, items } = req.body;
+    const { dept, date, indent_type = "routine", items } = req.body;
     
     const deptExists = await db("departments").whereRaw("LOWER(name) = LOWER(?)", [dept.trim()]).first();
     if (!deptExists) {
@@ -50,7 +50,7 @@ async function create(req, res, next) {
     }
     await assertDepartmentAccess(req.user, deptExists.name);
 
-    const [indent] = await db("indents").insert({ dept: deptExists.name, date, status: "pending" }).returning("*");
+    const [indent] = await db("indents").insert({ dept: deptExists.name, date, status: "pending", indent_type }).returning("*");
     const rows = items.map((it) => ({ indent_id: indent.id, name: it.name, qty: it.qty, unit: it.unit, item_code: it.item_code }));
     const savedItems = await db("indent_items").insert(rows).returning("*");
     res.status(201).json({ success: true, data: { ...indent, items: savedItems } });
