@@ -4,7 +4,12 @@ exports.up = async (knex) => {
     { key: "chef_stats.export", resource: "chef_stats", action: "export", label: "Export chef statistics" }
   ];
 
-  await knex("permissions").insert(newPermissions);
+  for (const perm of newPermissions) {
+    const existing = await knex("permissions").where("key", perm.key).first();
+    if (!existing) {
+      await knex("permissions").insert(perm);
+    }
+  }
 
   const roles = await knex("roles").select("id", "key");
   const permissions = await knex("permissions")
@@ -20,7 +25,12 @@ exports.up = async (knex) => {
   if (viewPermId) {
     for (const rKey of ["admin", "manager", "chef", "employee"]) {
       if (roleByKey[rKey]) {
-        rolePermissions.push({ role_id: roleByKey[rKey], permission_id: viewPermId });
+        const existing = await knex("role_permissions")
+          .where({ role_id: roleByKey[rKey], permission_id: viewPermId })
+          .first();
+        if (!existing) {
+          rolePermissions.push({ role_id: roleByKey[rKey], permission_id: viewPermId });
+        }
       }
     }
   }
@@ -29,7 +39,12 @@ exports.up = async (knex) => {
   if (exportPermId) {
     for (const rKey of ["admin", "manager"]) {
       if (roleByKey[rKey]) {
-        rolePermissions.push({ role_id: roleByKey[rKey], permission_id: exportPermId });
+        const existing = await knex("role_permissions")
+          .where({ role_id: roleByKey[rKey], permission_id: exportPermId })
+          .first();
+        if (!existing) {
+          rolePermissions.push({ role_id: roleByKey[rKey], permission_id: exportPermId });
+        }
       }
     }
   }

@@ -79,6 +79,9 @@ export function AuthProvider({ children }) {
   const hasPermission = useCallback((permission) => {
     if (!permission) return true;
     if (roles.some((role) => role.key === "admin")) return true;
+    if (Array.isArray(permission)) {
+      return permission.some((p) => permissions.has(p));
+    }
     return permissions.has(permission);
   }, [permissions, roles]);
 

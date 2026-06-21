@@ -6,7 +6,12 @@ exports.up = async (knex) => {
     { key: "audit.finalise", resource: "audit", action: "finalise", label: "Finalise stock audits" }
   ];
 
-  await knex("permissions").insert(newPermissions);
+  for (const perm of newPermissions) {
+    const existing = await knex("permissions").where("key", perm.key).first();
+    if (!existing) {
+      await knex("permissions").insert(perm);
+    }
+  }
 
   const roles = await knex("roles").select("id", "key");
   const permissions = await knex("permissions")
@@ -22,7 +27,12 @@ exports.up = async (knex) => {
   if (roleByKey["admin"]) {
     for (const key of ["audit.view", "audit.create", "audit.enter_counts", "audit.finalise"]) {
       if (permByKey[key]) {
-        rolePermissions.push({ role_id: roleByKey["admin"], permission_id: permByKey[key] });
+        const existing = await knex("role_permissions")
+          .where({ role_id: roleByKey["admin"], permission_id: permByKey[key] })
+          .first();
+        if (!existing) {
+          rolePermissions.push({ role_id: roleByKey["admin"], permission_id: permByKey[key] });
+        }
       }
     }
   }
@@ -31,7 +41,12 @@ exports.up = async (knex) => {
   if (roleByKey["store_manager"]) {
     for (const key of ["audit.view", "audit.create", "audit.enter_counts"]) {
       if (permByKey[key]) {
-        rolePermissions.push({ role_id: roleByKey["store_manager"], permission_id: permByKey[key] });
+        const existing = await knex("role_permissions")
+          .where({ role_id: roleByKey["store_manager"], permission_id: permByKey[key] })
+          .first();
+        if (!existing) {
+          rolePermissions.push({ role_id: roleByKey["store_manager"], permission_id: permByKey[key] });
+        }
       }
     }
   }

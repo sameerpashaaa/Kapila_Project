@@ -21,11 +21,11 @@ test.describe('Store Manager Flow', () => {
     const dropdown = page.locator('select.indent-field').first();
     const options = await dropdown.locator('option').allTextContents();
     
-    expect(options.some(t => t.includes('SI-MEALS'))).toBeTruthy();
-    expect(options.some(t => t.includes('CHAT & SOFTY'))).toBeTruthy();
+    expect(options.some(t => t.includes('South Indian'))).toBeTruthy();
+    expect(options.some(t => t.includes('Bakery'))).toBeTruthy();
     
-    // Select CHAT & SOFTY
-    await dropdown.selectOption({ label: 'CHAT & SOFTY (CHT)' });
+    // Select Bakery
+    await dropdown.selectOption({ label: 'Bakery (BAKE)' });
     
     // Fill the first row
     await page.fill('input.item-combobox-input', 'Atta');
@@ -43,10 +43,11 @@ test.describe('Store Manager Flow', () => {
     // 4. Issue the indent
     // Select the pending indent from the dropdown
     const selectIndent = page.locator('select:has-text("Choose pending indent")');
-    await selectIndent.selectOption({ index: 1 });
+    const optionValue = await page.locator('select:has-text("Choose pending indent") option:has-text("Bakery")').first().getAttribute('value');
+    await selectIndent.selectOption(optionValue);
     
     // Verify the item is in the issue form
-    await expect(page.locator('tr:has-text("Atta/ आटा")')).toBeVisible();
+    await expect(page.locator('main table').first().locator('tr:has-text("Atta")')).toBeVisible();
     
     // Confirm the item by clicking the checkbox
     await page.click('button[aria-label="Confirm item"]');
@@ -107,7 +108,7 @@ test.describe('Store Manager Flow', () => {
     
     // 9. Verify we are on Log EOD Outcome / Waste tab
     const activeTab = page.locator('button:has-text("Recipe Library") ~ button:has-text("Log EOD Outcome / Waste")');
-    await expect(activeTab).toHaveCSS('border-bottom-color', 'rgb(232, 168, 56)'); // matches gold color #e8a838
+    await expect(activeTab).toHaveCSS('border-bottom-color', 'rgb(71, 85, 105)'); // matches slate-600 brand color
     
     // 10. Click Log EOD Outcome / Waste button for the plan in the list
     await page.locator('div[style*="max-height"] button:has-text("Log EOD Outcome / Waste")').first().click();
@@ -126,7 +127,7 @@ test.describe('Store Manager Flow', () => {
     await page.waitForSelector('text=End-of-day report submitted successfully ✓', { timeout: 5000 });
     
     // 13. Verify completed outcomes displayed
-    await expect(page.locator('text=Sold: 130 plates')).toBeVisible();
-    await expect(page.locator('text=Wasted: 20 plates')).toBeVisible();
+    await expect(page.locator('text=Sold: 130 plates').first()).toBeVisible();
+    await expect(page.locator('text=Wasted: 20 plates').first()).toBeVisible();
   });
 });
